@@ -1,6 +1,5 @@
 # flyctl launch added from .gitignore
 # Rust
-backend/target
 backend/**/*.rs.bk
 
 # Node
@@ -37,5 +36,4 @@ data
 **/yarn-error.log*
 
 # flyctl launch added from backend/.gitignore
-backend/target
 fly.toml
