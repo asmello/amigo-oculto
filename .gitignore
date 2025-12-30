@@ -1,0 +1,37 @@
+# Rust
+/backend/target/
+/backend/**/*.rs.bk
+/backend/Cargo.lock
+
+# Node
+/frontend/node_modules/
+/frontend/build/
+/frontend/.svelte-kit/
+/frontend/package-lock.json
+
+# Environment files
+.env
+.env.local
+
+# Database
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
