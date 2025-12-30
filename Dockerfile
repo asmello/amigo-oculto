@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
 # 1) Copy manifests first for dependency caching
-COPY Cargo.toml Cargo.lock ./
+COPY backend/Cargo.toml backend/Cargo.lock ./
 
 # 2) Dummy main to compile deps only (best cache reuse)
 RUN mkdir -p src && printf "fn main() {}\n" > src/main.rs
@@ -32,7 +32,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
  && rm -rf src
 
 # 3) Copy actual source and build final binary
-COPY src ./src
+COPY backend/src ./src
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
