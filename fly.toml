@@ -4,6 +4,7 @@ primary_region = 'lhr'
 [[mounts]]
 source = 'amigo_oculto_data'
 destination = '/app/data'
+processes = ['app']
 
 [http_service]
 internal_port = 3000
@@ -17,4 +18,6 @@ processes = ['app']
 memory = '512mb'
 cpu_kind = 'shared'
 cpus = 1
-memory_mb = 512
+
+[processes]
+app = "/app/amigo-oculto-backend"
