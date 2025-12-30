@@ -2,6 +2,8 @@
 
 Sistema completo de Amigo Oculto (Secret Santa) localizado para Português Brasileiro, com backend em Rust e frontend em TypeScript/SvelteKit.
 
+> **💡 Nota:** Este projeto foi desenvolvido com a assistência de [Cline](https://github.com/cline/cline), um assistente de programação baseado em IA.
+
 ## 🌟 Funcionalidades
 
 - ✅ Criar jogos de Amigo Oculto
@@ -30,7 +32,7 @@ Sistema completo de Amigo Oculto (Secret Santa) localizado para Português Brasi
 ## 📋 Pré-requisitos
 
 ### Para desenvolvimento local:
-- Rust 1.75+ (`cargo --version`)
+- Rust 1.85+ (`cargo --version`)
 - Node.js 20+ (`node --version`)
 - Conta de email SMTP (Gmail, etc.)
 
@@ -272,7 +274,8 @@ docker-compose up -d
 
 ## 🔒 Segurança
 
-- ✅ Tokens únicos baseados em ULID (impossível adivinhar)
+- ✅ Tokens únicos gerados com criptografia segura (impossível adivinhar)
+- ✅ IDs ordenáveis e únicos baseados em ULID
 - ✅ Sem autenticação necessária (acesso via token)
 - ✅ Organizador não consegue ver os pares sorteados
 - ✅ Cada participante só vê seu próprio par
