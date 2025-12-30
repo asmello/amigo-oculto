@@ -3,12 +3,31 @@
 ARG RUST_VERSION=1.92.0
 ARG DEBIAN_SUITE=bookworm
 ARG BIN_NAME=amigo-oculto-backend
+ARG NODE_VERSION=20-bookworm-slim
+
+############################
+# Frontend build
+############################
+FROM node:${NODE_VERSION} AS fe_builder
+WORKDIR /app/frontend
+
+RUN corepack enable
+
+# Copy only package files first for caching
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+# Now copy the rest and build
+COPY frontend/ .
+RUN pnpm run build
 
 ############################
 # Build
 ############################
-FROM rust:${RUST_VERSION}-slim-${DEBIAN_SUITE} AS builder
-WORKDIR /app
+FROM rust:${RUST_VERSION}-slim-${DEBIAN_SUITE} AS be_builder
+WORKDIR /app/backend
 
 # Install only what is typically needed to build + run TLS clients.
 # Add more (e.g., libssl-dev, sqlite3, clang) only if your build fails.
@@ -51,7 +70,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Non-root user (Fly is happy with this; good default hardening)
 # RUN useradd -r -u 10001 -g nogroup appuser
 
-COPY --from=builder /app/target/release/${BIN_NAME} /app/${BIN_NAME}
+COPY --from=be_builder /app/backend/target/release/${BIN_NAME} /app/${BIN_NAME}
+COPY --from=fe_builder /app/frontend/build /app/public
 
 # This is where your Fly volume should mount (or adjust to your fly.toml)
 RUN mkdir -p /app/data #&& chown -R appuser:nogroup /app

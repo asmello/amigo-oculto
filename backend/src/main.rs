@@ -9,14 +9,18 @@ mod token;
 use anyhow::Context;
 use axum::{
     Router,
-    routing::{get, patch, post},
+    http::StatusCode,
+    routing::{get, get_service, patch, post},
 };
 use email::{EmailConfig, EmailService};
 use routes::AppState;
 use std::sync::Arc;
-use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
+use tower_http::{
+    cors::{Any, CorsLayer},
+    services::ServeFile,
+};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -35,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Get configuration from environment
     let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "sqlite://data/amigo_oculto.db".to_string());
+        .unwrap_or_else(|_| "sqlite:///app/data/amigo_oculto.db".to_string());
     let port = std::env::var("PORT")
         .unwrap_or_else(|_| "3000".to_string())
         .parse::<u16>()?;
@@ -94,7 +98,10 @@ async fn main() -> anyhow::Result<()> {
             post(routes::add_participant),
         )
         .route("/games/{game_id}/draw", post(routes::draw_game))
-        .route("/games/{game_id}/resend-all", post(routes::resend_all_emails))
+        .route(
+            "/games/{game_id}/resend-all",
+            post(routes::resend_all_emails),
+        )
         .route(
             "/games/{game_id}/participants/{participant_id}/resend",
             post(routes::resend_participant_email),
@@ -103,7 +110,10 @@ async fn main() -> anyhow::Result<()> {
             "/games/{game_id}/participants/{participant_id}",
             patch(routes::update_participant),
         )
-        .route("/games/{game_id}", get(routes::get_game_status).delete(routes::delete_game))
+        .route(
+            "/games/{game_id}",
+            get(routes::get_game_status).delete(routes::delete_game),
+        )
         .route("/reveal/{view_token}", get(routes::reveal_match))
         .with_state(state);
 
@@ -113,12 +123,22 @@ async fn main() -> anyhow::Result<()> {
         .allow_methods(Any)
         .allow_headers(Any);
 
+    let static_base_dir = std::path::PathBuf::from(
+        std::env::var("STATIC_DIR").unwrap_or_else(|_| "/app/public".into()),
+    );
+
+    let static_dir = ServeDir::new(&static_base_dir)
+        .not_found_service(ServeFile::new(static_base_dir.join("index.html")));
+
     // Build main app
     let app = Router::new()
         .nest("/api", api_routes)
-        .fallback_service(ServeDir::new("../frontend/build").not_found_service(
-            ServeDir::new("../frontend/build").append_index_html_on_directories(true),
-        ))
+        .fallback_service(get_service(static_dir).handle_error(|error| async move {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("static file error: {error}"),
+            )
+        }))
         .layer(cors)
         .layer(TraceLayer::new_for_http());
 
@@ -126,7 +146,7 @@ async fn main() -> anyhow::Result<()> {
     let addr = format!("0.0.0.0:{}", port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("🚀 Server listening on {}", addr);
-    tracing::info!("📝 API available at http://localhost:{}/api", port);
+    tracing::info!("📝 App available at http://localhost:{}/", port);
 
     axum::serve(listener, app).await?;
 
