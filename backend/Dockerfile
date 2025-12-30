@@ -49,14 +49,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # Non-root user (Fly is happy with this; good default hardening)
-RUN useradd -r -u 10001 -g nogroup appuser
+# RUN useradd -r -u 10001 -g nogroup appuser
 
 COPY --from=builder /app/target/release/${BIN_NAME} /app/${BIN_NAME}
 
 # This is where your Fly volume should mount (or adjust to your fly.toml)
-RUN mkdir -p /app/data && chown -R appuser:nogroup /app
+RUN mkdir -p /app/data #&& chown -R appuser:nogroup /app
 
-USER appuser
+# USER appuser
 ENV PORT=3000
 EXPOSE 3000
 
