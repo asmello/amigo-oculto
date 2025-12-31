@@ -100,7 +100,6 @@ impl EmailService {
             .from(self.inner.from_address.clone())
             .to(participant_email.parse()?)
             .subject(format!("🎁 Amigo Oculto: {}", game_name))
-            .header(ContentType::TEXT_HTML)
             .multipart(
                 lettre::message::MultiPart::alternative()
                     .singlepart(
@@ -158,7 +157,6 @@ impl EmailService {
             .from(self.inner.from_address.clone())
             .to(organizer_email.parse()?)
             .subject(format!("✅ Sorteio Realizado: {}", game_name))
-            .header(ContentType::TEXT_HTML)
             .multipart(
                 lettre::message::MultiPart::alternative()
                     .singlepart(
@@ -199,7 +197,6 @@ impl EmailService {
             .from(self.inner.from_address.clone())
             .to(recipient_email.parse()?)
             .subject("🔐 Código de Verificação - Amigo Oculto")
-            .header(ContentType::TEXT_HTML)
             .multipart(
                 lettre::message::MultiPart::alternative()
                     .singlepart(
@@ -246,7 +243,6 @@ impl EmailService {
             .from(self.inner.from_address.clone())
             .to(organizer_email.parse()?)
             .subject(format!("🎉 Jogo Criado: {}", game_name))
-            .header(ContentType::TEXT_HTML)
             .multipart(
                 lettre::message::MultiPart::alternative()
                     .singlepart(
