@@ -42,10 +42,13 @@ impl EmailService {
                 .credentials(creds)
                 .build() ;
 
+        let email_address = config.from_address.parse()?;
+        let from_address = Mailbox::new(Some("Amigo Oculto".to_string()), email_address);
+
         Ok(Self {
             inner: EmailServiceInner {
                 mailer,
-                from_address: config.from_address.parse()?,
+                from_address,
                 base_url: config.base_url,
             }
             .into(),
@@ -99,7 +102,7 @@ impl EmailService {
         let email = Message::builder()
             .from(self.inner.from_address.clone())
             .to(participant_email.parse()?)
-            .subject(format!("🎁 Amigo Oculto: {}", game_name))
+            .subject(format!("🎁 {}", game_name))
             .multipart(
                 lettre::message::MultiPart::alternative()
                     .singlepart(
@@ -196,7 +199,7 @@ impl EmailService {
         let email = Message::builder()
             .from(self.inner.from_address.clone())
             .to(recipient_email.parse()?)
-            .subject("🔐 Código de Verificação - Amigo Oculto")
+            .subject("🔐 Código de Verificação")
             .multipart(
                 lettre::message::MultiPart::alternative()
                     .singlepart(
