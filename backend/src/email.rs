@@ -20,6 +20,18 @@ pub struct EmailConfig {
     pub base_url: Url,
 }
 
+impl EmailConfig {
+    pub fn from_env() -> Result<Self> {
+Ok(Self {
+        smtp_host: std::env::var("SMTP_HOST")?,
+        smtp_port: std::env::var("SMTP_PORT")?.parse()?,
+        smtp_username: std::env::var("SMTP_USERNAME")?,
+        smtp_password: std::env::var("SMTP_PASSWORD")?,
+        from_address: std::env::var("SMTP_FROM")?,
+        base_url: std::env::var("BASE_URL")?.parse()?,
+    }    )}
+}
+
 #[derive(Clone)]
 pub struct EmailService {
     inner: Arc<EmailServiceInner>,
@@ -32,6 +44,11 @@ struct EmailServiceInner {
 }
 
 impl EmailService {
+    pub fn from_env() -> Result<Self> {
+        let config = EmailConfig::from_env()?;
+        Self::new(config)
+    }
+    
     pub fn new(config: EmailConfig) -> Result<Self> {
         let creds = Credentials::new(config.smtp_username, config.smtp_password);
 

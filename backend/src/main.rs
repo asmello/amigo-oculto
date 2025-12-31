@@ -4,24 +4,14 @@ mod email_templates;
 mod matching;
 mod models;
 mod routes;
+mod server;
 mod staging_auth;
 mod token;
 
+use crate::{db::Database, server::Server};
 use anyhow::Context;
-use axum::{
-    Router,
-    http::StatusCode,
-    routing::{get, get_service, patch, post},
-};
-use email::{EmailConfig, EmailService};
-use routes::AppState;
-use std::sync::Arc;
-use tower_http::services::ServeDir;
-use tower_http::trace::TraceLayer;
-use tower_http::{
-    cors::{Any, CorsLayer},
-    services::ServeFile,
-};
+use email::EmailService;
+use tokio_util::sync::CancellationToken;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -38,125 +28,58 @@ async fn main() -> anyhow::Result<()> {
     // Load environment variables
     dotenvy::dotenv().ok();
 
-    // Get configuration from environment
-    let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "sqlite:///app/data/amigo_oculto.db".to_string());
+    let db = Database::from_env().await?;
+    let cancel = CancellationToken::new();
+    let server = Server::new(&db, cancel.clone())?;
+    let email_service = EmailService::from_env()?;
+
+    email_service.test().await.context("testing connection")?;
+
+    let app = routes::make(db, email_service);
+
     let port = std::env::var("PORT")
         .unwrap_or_else(|_| "3000".to_string())
         .parse::<u16>()?;
 
-    tracing::info!("Connecting to database: {}", database_url);
-
-    // Initialize database
-    let pool = db::init_db(&database_url).await?;
-
-    // Spawn background task to cleanup expired verifications
-    let cleanup_pool = pool.clone();
-    tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(3600)); // 1 hour
-        loop {
-            interval.tick().await;
-            match db::cleanup_expired_verifications(&cleanup_pool).await {
-                Ok(count) if count > 0 => {
-                    tracing::info!("Cleaned up {} expired verification(s)", count);
-                }
-                Ok(_) => {
-                    tracing::debug!("No expired verifications to clean up");
-                }
-                Err(e) => {
-                    tracing::error!("Failed to cleanup expired verifications: {}", e);
-                }
-            }
-        }
-    });
-
-    // Initialize email service (already cloneable via internal Arc)
-    let email_config = EmailConfig {
-        smtp_host: std::env::var("SMTP_HOST")?,
-        smtp_port: std::env::var("SMTP_PORT")?.parse()?,
-        smtp_username: std::env::var("SMTP_USERNAME")?,
-        smtp_password: std::env::var("SMTP_PASSWORD")?,
-        from_address: std::env::var("SMTP_FROM")?,
-        base_url: std::env::var("BASE_URL")?.parse()?,
-    };
-    let email_service = EmailService::new(email_config)?;
-    email_service.test().await.context("testing connection")?;
-
-    // Create app state (EmailService is cloneable, no Arc needed)
-    let state = Arc::new(AppState {
-        pool,
-        email_service,
-    });
-
-    // Build API routes
-    let api_routes = Router::new()
-        .route("/verifications/request", post(routes::request_verification))
-        .route("/verifications/verify", post(routes::verify_code))
-        .route("/verifications/resend", post(routes::resend_verification))
-        .route("/games", post(routes::create_game))
-        .route(
-            "/games/{game_id}/participants",
-            post(routes::add_participant),
-        )
-        .route("/games/{game_id}/draw", post(routes::draw_game))
-        .route(
-            "/games/{game_id}/resend-all",
-            post(routes::resend_all_emails),
-        )
-        .route(
-            "/games/{game_id}/participants/{participant_id}/resend",
-            post(routes::resend_participant_email),
-        )
-        .route(
-            "/games/{game_id}/participants/{participant_id}",
-            patch(routes::update_participant),
-        )
-        .route(
-            "/games/{game_id}",
-            get(routes::get_game_status).delete(routes::delete_game),
-        )
-        .route("/reveal/{view_token}", get(routes::reveal_match))
-        .with_state(state);
-
-    // Setup CORS
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
-
-    let static_base_dir = std::path::PathBuf::from(
-        std::env::var("STATIC_DIR").unwrap_or_else(|_| "/app/public".into()),
-    );
-
-    let static_dir = ServeDir::new(&static_base_dir)
-        .not_found_service(ServeFile::new(static_base_dir.join("index.html")));
-
-    // Staging protection (enabled if STAGING_SECRET is set)
-    let staging_auth = staging_auth::StagingAuthLayer::from_env();
-    if staging_auth.is_enabled() {
-        tracing::info!("Staging authentication enabled (X-Staging-Secret header required)");
-    }
-
-    // Build main app
-    let app = Router::new()
-        .nest("/api", api_routes)
-        .fallback_service(get_service(static_dir).handle_error(|error| async move {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("static file error: {error}"),
-            )
-        }))
-        .layer(staging_auth)
-        .layer(cors)
-        .layer(TraceLayer::new_for_http());
-
-    // Start server
     let addr = format!("0.0.0.0:{}", port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("🚀 Server listening on {}", addr);
     tracing::info!("📝 App available at http://localhost:{}/", port);
 
-    axum::serve(listener, app).await?;
+    // Run the HTTP server with graceful shutdown
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal(cancel))
+        .await?;
+
+    // Shutdown background tasks
+    server.shutdown().await;
 
     Ok(())
+}
+
+async fn shutdown_signal(cancel: CancellationToken) {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    tracing::info!("Shutdown signal received, starting graceful shutdown");
+    cancel.cancel();
 }

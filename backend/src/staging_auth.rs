@@ -95,13 +95,13 @@ where
         // If no secret configured, pass through (disabled)
         let Some(expected_secret) = &self.config.secret else {
             let future = self.inner.call(req);
-            return Box::pin(async move { future.await });
+            return Box::pin(future);
         };
 
         // Allow CORS preflight requests
         if req.method() == Method::OPTIONS {
             let future = self.inner.call(req);
-            return Box::pin(async move { future.await });
+            return Box::pin(future);
         }
 
         // Validate the header
@@ -110,7 +110,7 @@ where
         if header_value == Some(expected_secret.as_str()) {
             // Valid header, proceed
             let future = self.inner.call(req);
-            Box::pin(async move { future.await })
+            Box::pin(future)
         } else {
             // Missing or invalid header
             let client_ip = req

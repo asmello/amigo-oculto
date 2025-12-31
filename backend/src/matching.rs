@@ -48,7 +48,7 @@ mod tests {
             name: name.to_string(),
             email: format!("{}@test.com", name),
             matched_with_id: None,
-            view_token: "token".to_string(),
+            view_token: "token".to_string().into(),
             has_viewed: false,
             created_at: chrono::Utc::now(),
         }
