@@ -4,6 +4,7 @@ mod email_templates;
 mod matching;
 mod models;
 mod routes;
+mod staging_auth;
 mod token;
 
 use anyhow::Context;
@@ -130,6 +131,12 @@ async fn main() -> anyhow::Result<()> {
     let static_dir = ServeDir::new(&static_base_dir)
         .not_found_service(ServeFile::new(static_base_dir.join("index.html")));
 
+    // Staging protection (enabled if STAGING_SECRET is set)
+    let staging_auth = staging_auth::StagingAuthLayer::from_env();
+    if staging_auth.is_enabled() {
+        tracing::info!("Staging authentication enabled (X-Staging-Secret header required)");
+    }
+
     // Build main app
     let app = Router::new()
         .nest("/api", api_routes)
@@ -139,6 +146,7 @@ async fn main() -> anyhow::Result<()> {
                 format!("static file error: {error}"),
             )
         }))
+        .layer(staging_auth)
         .layer(cors)
         .layer(TraceLayer::new_for_http());
 

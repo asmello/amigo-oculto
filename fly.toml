@@ -1,4 +1,4 @@
-app = 'amigo-oculto-late-paper-4181'
+app = 'amigo-oculto-staging'
 primary_region = 'lhr'
 
 [[mounts]]
@@ -17,7 +17,7 @@ processes = ['app']
 [env]
 RUST_LOG = "debug"
 DATABASE_URL = "sqlite:///app/data/amigo_oculto.db"
-BASE_URL = "https://amigo-oculto-late-paper-4181.fly.dev/"
+BASE_URL = "https://staging.amigoocultosimples.app/"
 
 [[vm]]
 memory = '512mb'
