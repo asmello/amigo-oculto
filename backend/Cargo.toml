@@ -29,3 +29,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 rand = "0.8"
 url = "2.5.7"
 maud = "0.26"
+bcrypt = "0.15"

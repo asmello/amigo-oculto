@@ -58,6 +58,18 @@ impl Server {
                             tracing::error!("failed to cleanup old games: {}", e);
                         }
                     }
+
+                    match db.cleanup_expired_admin_sessions().await {
+                        Ok(count) if count > 0 => {
+                            tracing::info!("cleaned up {} expired admin session(s)", count);
+                        }
+                        Ok(_) => {
+                            tracing::debug!("no expired admin sessions to clean up");
+                        }
+                        Err(e) => {
+                            tracing::error!("failed to cleanup expired admin sessions: {}", e);
+                        }
+                    }
                 }
                 _ = cancel.cancelled() => {
                     tracing::debug!("cleanup task received shutdown signal");
