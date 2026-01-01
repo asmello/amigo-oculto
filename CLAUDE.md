@@ -93,3 +93,13 @@ STATIC_DIR=../frontend/build
 - `PATCH /games/{game_id}/participants/{id}` - Edit participant
 - `POST /games/{game_id}/draw` - Execute Secret Santa matching
 - `GET /reveal/{view_token}` - Get participant's match
+
+## Style guidance
+
+The Rust code should favour type safety. Whenever a value represents an identifier or a token, it should use the newtype pattern, instead of simply be defined as a `String` or `&str` type, for example. Similarly, dates and other values that are typically represented as strings when serialized in API boundaries should internally be held in data structures as unambiguous types such as `chrono::DateTime`. 
+
+Error handling should prioritise context. We use `anyhow`, which provides the `Context` trait for annotating fallible operations with surrounding context of their execution. Generally, this should describe what the code was doing when it failed - for example, "fetching the user from the database" or "parsing the value as an admin token". This context should be surfaced in server logs, but generally shouldn't be exposed directly through the API in the form of HTTP responses. That said, the error codes and responses should be useful for clients to determine what they did wrong when they are the cause of the error.
+
+### Panicking
+
+We adhere to the convention that panics should only happen when there's a bug in our application. At the same time, when an invariant we rely upon is violated, we should always panic rather than continue the program. A caveat is that a panic that happens when handling a request will typically be intercepted by axum, and won't cause the whole server to crash. Because of this, if any bugs would cause state corruption that persists across requests, they should trigger a graceful shutdown of the server (or immediately abort, depending on severity).
