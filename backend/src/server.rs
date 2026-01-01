@@ -16,31 +16,39 @@ impl Server {
 
     /// Waits for all background tasks to complete.
     pub async fn shutdown(mut self) {
-        while self.tasks.join_next().await.is_some() {}
-        tracing::info!("All background tasks have stopped");
+        while let Some(next) = self.tasks.join_next().await {
+            if let Err(err) = next {
+                if err.is_cancelled() {
+                    tracing::debug!("task aborted");
+                    continue;
+                }
+                std::panic::resume_unwind(err.into_panic())
+            }
+        }
+        tracing::info!("all background tasks have stopped");
     }
 
     async fn cleanup_task(db: Database, cancel: CancellationToken) {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(3600)); // 1 hour
-        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         loop {
             tokio::select! {
                 _ = interval.tick() => {
                     match db.cleanup_expired_verifications().await {
                         Ok(count) if count > 0 => {
-                            tracing::info!("Cleaned up {} expired verification(s)", count);
+                            tracing::info!("cleaned up {} expired verification(s)", count);
                         }
                         Ok(_) => {
-                            tracing::debug!("No expired verifications to clean up");
+                            tracing::debug!("no expired verifications to clean up");
                         }
                         Err(e) => {
-                            tracing::error!("Failed to cleanup expired verifications: {}", e);
+                            tracing::error!("failed to cleanup expired verifications: {}", e);
                         }
                     }
                 }
                 _ = cancel.cancelled() => {
-                    tracing::debug!("Cleanup task received shutdown signal");
+                    tracing::debug!("cleanup task received shutdown signal");
                     break;
                 }
             }

@@ -75,12 +75,12 @@ impl EmailService {
     }
 
     pub async fn test(&self) -> Result<()> {
-        tracing::info!("Testing SMTP connection...");
+        tracing::info!("testing SMTP connection...");
         self.inner.mailer.test_connection().await.map_err(|e| {
             tracing::error!("SMTP connection test failed: {}", e);
-            anyhow::anyhow!("Failed to connect to SMTP server: {}. Please verify your SMTP settings (host, port, username, password) and network connectivity.", e)
+            anyhow::anyhow!("failed to connect to SMTP server: {}. Please verify your SMTP settings (host, port, username, password) and network connectivity.", e)
         })?;
-        tracing::info!("✓ SMTP connection test successful!");
+        tracing::info!("SMTP connection test successful");
         Ok(())
     }
 

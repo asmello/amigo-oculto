@@ -63,7 +63,7 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
     // Staging protection (enabled if STAGING_SECRET is set)
     let staging_auth = StagingAuthLayer::from_env();
     if staging_auth.is_enabled() {
-        tracing::info!("Staging authentication enabled (X-Staging-Secret header required)");
+        tracing::info!("staging authentication enabled (X-Staging-Secret header required)");
     }
 
     Router::new()
@@ -193,7 +193,7 @@ pub async fn draw_game(
             )
             .await
         {
-            tracing::error!("Failed to send email to {}: {}", participant.email, e);
+            tracing::error!("failed to send email to {}: {}", participant.email, e);
         }
     }
 
@@ -210,7 +210,7 @@ pub async fn draw_game(
         )
         .await
     {
-        tracing::error!("Failed to send confirmation email to organizer: {}", e);
+        tracing::error!("failed to send confirmation email to organizer: {}", e);
     }
 
     Ok(Json(serde_json::json!({
@@ -331,7 +331,7 @@ pub async fn resend_all_emails(
         {
             Ok(_) => sent_count += 1,
             Err(e) => {
-                tracing::error!("Failed to resend email to {}: {}", participant.email, e);
+                tracing::error!("failed to resend email to {}: {}", participant.email, e);
                 failed_count += 1;
             }
         }
@@ -625,7 +625,7 @@ pub async fn request_verification(
         )
         .await
     {
-        tracing::error!("Failed to send verification email: {}", e);
+        tracing::error!("failed to send verification email: {}", e);
         return Err(AppError::InternalError(
             "Erro ao enviar email de verificação".to_string(),
         ));
@@ -732,7 +732,7 @@ pub async fn verify_code(
         )
         .await
     {
-        tracing::error!("Failed to send admin welcome email: {}", e);
+        tracing::error!("failed to send admin welcome email: {}", e);
         // Don't fail the request if email fails
     }
 
@@ -804,7 +804,7 @@ pub async fn resend_verification(
         .send_verification_code(&verification.email, &verification.game_name, &new_code)
         .await
     {
-        tracing::error!("Failed to resend verification email: {}", e);
+        tracing::error!("failed to resend verification email: {}", e);
         return Ok(Json(ResendVerificationResponse {
             success: false,
             error: Some("Erro ao enviar email de verificação".to_string()),
@@ -844,7 +844,7 @@ impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
         let (status, message) = match self {
             AppError::Database(e) => {
-                tracing::error!("Database error: {}", e);
+                tracing::error!("database error: {}", e);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "Erro interno do servidor".to_string(),
@@ -855,7 +855,7 @@ impl IntoResponse for AppError {
             AppError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg),
             AppError::InternalError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
             AppError::Anyhow(e) => {
-                tracing::error!("Error: {}", e);
+                tracing::error!("error: {}", e);
                 (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
             }
         };

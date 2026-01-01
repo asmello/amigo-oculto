@@ -81,7 +81,7 @@ impl Database {
     pub async fn from_env() -> Result<Self> {
         let database_url = std::env::var("DATABASE_URL")
             .unwrap_or_else(|_| "sqlite:///app/data/amigo_oculto.db".to_string());
-        tracing::info!("Connecting to database: {}", database_url);
+        tracing::info!("connecting to database: {}", database_url);
         let pool = init_db(&database_url).await?;
         Ok(Self { pool })
     }

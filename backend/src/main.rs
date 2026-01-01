@@ -80,6 +80,6 @@ async fn shutdown_signal(cancel: CancellationToken) {
         _ = terminate => {},
     }
 
-    tracing::info!("Shutdown signal received, starting graceful shutdown");
+    tracing::info!("shutdown signal received, starting graceful shutdown");
     cancel.cancel();
 }
