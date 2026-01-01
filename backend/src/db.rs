@@ -648,7 +648,7 @@ impl Database {
         Ok(row.get("count"))
     }
 
-    pub async fn count_participants_in_game(&self, game_id: GameId) -> Result<i64> {
+    pub async fn count_participants_in_game(&self, game_id: GameId) -> Result<u64> {
         let row = sqlx::query(
             r#"
             SELECT COUNT(*) as count
@@ -660,7 +660,8 @@ impl Database {
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(row.get("count"))
+        let count: i64 = row.get("count");
+        Ok(count as u64)
     }
 
     // Site admin authentication functions
@@ -849,8 +850,8 @@ impl Database {
     pub async fn search_games(
         &self,
         search: Option<&str>,
-        limit: i64,
-        offset: i64,
+        limit: u32,
+        offset: u64,
     ) -> Result<Vec<Game>> {
         let query = if let Some(search_term) = search {
             sqlx::query(
@@ -865,8 +866,8 @@ impl Database {
             .bind(format!("%{}%", search_term))
             .bind(format!("%{}%", search_term))
             .bind(format!("%{}%", search_term))
-            .bind(limit)
-            .bind(offset)
+            .bind(limit as i64)
+            .bind(offset as i64)
         } else {
             sqlx::query(
                 r#"
@@ -876,8 +877,8 @@ impl Database {
                 LIMIT ? OFFSET ?
                 "#,
             )
-            .bind(limit)
-            .bind(offset)
+            .bind(limit as i64)
+            .bind(offset as i64)
         };
 
         let rows = query.fetch_all(&self.pool).await?;
@@ -897,7 +898,7 @@ impl Database {
     }
 
     /// Count total games matching search criteria.
-    pub async fn count_games(&self, search: Option<&str>) -> Result<i64> {
+    pub async fn count_games(&self, search: Option<&str>) -> Result<u64> {
         let row = if let Some(search_term) = search {
             sqlx::query(
                 r#"
@@ -917,7 +918,8 @@ impl Database {
                 .await?
         };
 
-        Ok(row.get("count"))
+        let count: i64 = row.get("count");
+        Ok(count as u64)
     }
 }
 

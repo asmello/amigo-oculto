@@ -96,7 +96,9 @@ STATIC_DIR=../frontend/build
 
 ## Style guidance
 
-The Rust code should favour type safety. Whenever a value represents an identifier or a token, it should use the newtype pattern, instead of simply be defined as a `String` or `&str` type, for example. Similarly, dates and other values that are typically represented as strings when serialized in API boundaries should internally be held in data structures as unambiguous types such as `chrono::DateTime`. 
+The Rust code should favour type safety. Whenever a value represents an identifier or a token, it should use the newtype pattern, instead of simply be defined as a `String` or `&str` type, for example. Similarly, dates and other values that are typically represented as strings when serialized in API boundaries should internally be held in data structures as unambiguous types such as `chrono::DateTime`.
+
+Use unsigned integer types where semantically appropriate. Counts, pagination parameters (limit, offset), and other naturally non-negative values should use unsigned types (`u32`, `u64`, `usize`) rather than signed types. This makes the API more self-documenting and prevents invalid negative values. Note that SQLite returns signed integers (`i64`), so conversion at the database boundary may be necessary.
 
 Error handling should prioritise context. We use `anyhow`, which provides the `Context` trait for annotating fallible operations with surrounding context of their execution. Generally, this should describe what the code was doing when it failed - for example, "fetching the user from the database" or "parsing the value as an admin token". This context should be surfaced in server logs, but generally shouldn't be exposed directly through the API in the form of HTTP responses. That said, the error codes and responses should be useful for clients to determine what they did wrong when they are the cause of the error.
 

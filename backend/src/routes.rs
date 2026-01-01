@@ -3,7 +3,7 @@ use crate::{
     email::EmailService,
     matching,
     models::*,
-    site_admin_auth::SiteAdmin,
+    site_admin_auth::SiteAdminLayer,
     staging_auth::StagingAuthLayer,
     token::{AdminToken, GameId, ParticipantId, ViewToken},
 };
@@ -24,10 +24,24 @@ use tower_http::{
 };
 
 /// Maximum number of participants allowed per game to prevent abuse
-const MAX_PARTICIPANTS_PER_GAME: i64 = 100;
+const MAX_PARTICIPANTS_PER_GAME: u64 = 100;
 
 pub fn make(db: Database, email_service: EmailService) -> Router {
-    let state = Arc::new(AppState { db, email_service });
+    let state = Arc::new(AppState {
+        db: db.clone(),
+        email_service,
+    });
+
+    // Site admin protected routes (require authentication)
+    let site_admin_protected = Router::new()
+        .route("/change-password", post(site_admin_change_password))
+        .route("/games", get(site_admin_search_games))
+        .route(
+            "/games/{game_id}",
+            get(site_admin_get_game).delete(site_admin_delete_game),
+        )
+        .layer(SiteAdminLayer::new(db))
+        .with_state(state.clone());
 
     let api_routes = Router::new()
         .route("/verifications/request", post(request_verification))
@@ -47,12 +61,10 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
         )
         .route("/games/{game_id}", get(get_game_status).delete(delete_game))
         .route("/reveal/{view_token}", get(reveal_match))
-        // Site admin routes
+        // Site admin public routes (no authentication required)
         .route("/site-admin/login", post(site_admin_login))
-        .route("/site-admin/change-password", post(site_admin_change_password))
-        .route("/site-admin/games", get(site_admin_search_games))
-        .route("/site-admin/games/{game_id}",
-            get(site_admin_get_game).delete(site_admin_delete_game))
+        // Site admin protected routes
+        .nest("/site-admin", site_admin_protected)
         .with_state(state);
 
     let cors = CorsLayer::new()
@@ -858,7 +870,6 @@ pub async fn site_admin_login(
 
 /// POST /api/site-admin/change-password - Change the site admin password
 pub async fn site_admin_change_password(
-    _admin: SiteAdmin,
     State(state): State<Arc<AppState>>,
     Json(req): Json<ChangePasswordRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
@@ -893,7 +904,6 @@ pub async fn site_admin_change_password(
 
 /// GET /api/site-admin/games - Search and list games with pagination
 pub async fn site_admin_search_games(
-    _admin: SiteAdmin,
     State(state): State<Arc<AppState>>,
     Query(query): Query<SearchGamesQuery>,
 ) -> Result<Json<SearchGamesResponse>, AppError> {
@@ -935,7 +945,6 @@ pub async fn site_admin_search_games(
 
 /// GET /api/site-admin/games/:game_id - Get full game details including admin token
 pub async fn site_admin_get_game(
-    _admin: SiteAdmin,
     State(state): State<Arc<AppState>>,
     Path(game_id): Path<GameId>,
 ) -> Result<Json<GameDetailResponse>, AppError> {
@@ -946,7 +955,7 @@ pub async fn site_admin_get_game(
         .ok_or(AppError::NotFound("Jogo não encontrado".to_string()))?;
 
     let participants = state.db.get_participants_by_game(game_id).await?;
-    let participant_count = participants.len() as i64;
+    let participant_count = participants.len() as u64;
 
     Ok(Json(GameDetailResponse {
         game,
@@ -957,7 +966,6 @@ pub async fn site_admin_get_game(
 
 /// DELETE /api/site-admin/games/:game_id - Permanently delete a game
 pub async fn site_admin_delete_game(
-    _admin: SiteAdmin,
     State(state): State<Arc<AppState>>,
     Path(game_id): Path<GameId>,
 ) -> Result<Json<serde_json::Value>, AppError> {

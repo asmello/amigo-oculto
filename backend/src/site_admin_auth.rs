@@ -1,100 +1,139 @@
-//! Site admin authentication extractor.
+//! Site admin authentication middleware.
 //!
 //! Validates session tokens from the Authorization header to authenticate
 //! site administrators. Session tokens are obtained via the login endpoint.
 
-use crate::token::AdminSessionToken;
+use crate::{db::Database, token::AdminSessionToken};
 use axum::{
-    extract::{FromRef, FromRequestParts},
-    http::{request::Parts, StatusCode},
-    response::{IntoResponse, Response},
+    body::Body,
+    http::{Request, Response, StatusCode},
     Json,
 };
-use std::sync::Arc;
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
+use tower::{Layer, Service};
 
-/// Extractor that validates site admin authentication.
-///
-/// Use this in route handlers that require site admin access:
-/// ```
-/// async fn admin_only_route(
-///     SiteAdmin: SiteAdmin,
-///     // ... other extractors
-/// ) -> Result<impl IntoResponse, AppError> {
-///     // This code only runs if authentication succeeded
-/// }
-/// ```
-pub struct SiteAdmin;
+/// Tower Layer that wraps services with site admin authentication.
+#[derive(Clone)]
+pub struct SiteAdminLayer {
+    db: Database,
+}
 
-impl<S> FromRequestParts<S> for SiteAdmin
-where
-    S: Send + Sync,
-    Arc<crate::routes::AppState>: FromRef<S>,
-{
-    type Rejection = AuthError;
+impl SiteAdminLayer {
+    pub fn new(db: Database) -> Self {
+        Self { db }
+    }
+}
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        // Extract database from app state
-        let app_state: Arc<crate::routes::AppState> = FromRef::from_ref(state);
+impl<S> Layer<S> for SiteAdminLayer {
+    type Service = SiteAdminService<S>;
 
-        // Get Authorization header
-        let auth_header = parts
-            .headers
-            .get("Authorization")
-            .and_then(|v| v.to_str().ok())
-            .ok_or(AuthError::MissingToken)?;
-
-        // Parse "Bearer <token>"
-        let token_str = auth_header
-            .strip_prefix("Bearer ")
-            .ok_or(AuthError::InvalidFormat)?;
-
-        // Parse token
-        let session_token: AdminSessionToken = token_str
-            .parse()
-            .map_err(|_| AuthError::InvalidToken)?;
-
-        // Validate session
-        let valid = app_state
-            .db
-            .validate_admin_session(&session_token)
-            .await
-            .map_err(|e| {
-                tracing::error!("failed to validate admin session: {}", e);
-                AuthError::DatabaseError
-            })?;
-
-        if !valid {
-            return Err(AuthError::InvalidToken);
+    fn layer(&self, inner: S) -> Self::Service {
+        SiteAdminService {
+            inner,
+            db: self.db.clone(),
         }
-
-        Ok(SiteAdmin)
     }
 }
 
-#[derive(Debug)]
-pub enum AuthError {
-    MissingToken,
-    InvalidFormat,
-    InvalidToken,
-    DatabaseError,
+/// Tower Service that validates site admin authentication header.
+#[derive(Clone)]
+pub struct SiteAdminService<S> {
+    inner: S,
+    db: Database,
 }
 
-impl IntoResponse for AuthError {
-    fn into_response(self) -> Response {
-        let (status, message) = match self {
-            AuthError::MissingToken => (StatusCode::UNAUTHORIZED, "Missing authorization token"),
-            AuthError::InvalidFormat => (StatusCode::UNAUTHORIZED, "Invalid authorization format"),
-            AuthError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid or expired token"),
-            AuthError::DatabaseError => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal server error",
-            ),
-        };
+impl<S> Service<Request<Body>> for SiteAdminService<S>
+where
+    S: Service<Request<Body>, Response = Response<Body>> + Clone + Send + 'static,
+    S::Future: Send + 'static,
+{
+    type Response = Response<Body>;
+    type Error = S::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
-        let body = Json(serde_json::json!({
-            "error": message
-        }));
-
-        (status, body).into_response()
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
     }
+
+    fn call(&mut self, req: Request<Body>) -> Self::Future {
+        let db = self.db.clone();
+        let mut inner = self.inner.clone();
+
+        Box::pin(async move {
+            // Get Authorization header
+            let auth_header = match req
+                .headers()
+                .get("Authorization")
+                .and_then(|v| v.to_str().ok())
+            {
+                Some(header) => header,
+                None => {
+                    tracing::warn!("site admin request missing authorization header");
+                    return Ok(unauthorized_response("Missing authorization token"));
+                }
+            };
+
+            // Parse "Bearer <token>"
+            let token_str = match auth_header.strip_prefix("Bearer ") {
+                Some(token) => token,
+                None => {
+                    tracing::warn!("site admin request has invalid authorization format");
+                    return Ok(unauthorized_response("Invalid authorization format"));
+                }
+            };
+
+            // Parse token
+            let session_token: AdminSessionToken = match token_str.parse() {
+                Ok(token) => token,
+                Err(_) => {
+                    tracing::warn!("site admin request has malformed token");
+                    return Ok(unauthorized_response("Invalid token"));
+                }
+            };
+
+            // Validate session
+            match db.validate_admin_session(&session_token).await {
+                Ok(true) => {
+                    // Authentication successful, proceed with request
+                    inner.call(req).await
+                }
+                Ok(false) => {
+                    tracing::warn!("site admin request with invalid or expired session");
+                    Ok(unauthorized_response("Invalid or expired token"))
+                }
+                Err(e) => {
+                    tracing::error!("failed to validate site admin session: {}", e);
+                    Ok(internal_error_response())
+                }
+            }
+        })
+    }
+}
+
+fn unauthorized_response(message: &str) -> Response<Body> {
+    let body = Json(serde_json::json!({
+        "error": message
+    }));
+
+    Response::builder()
+        .status(StatusCode::UNAUTHORIZED)
+        .header("Content-Type", "application/json")
+        .body(Body::from(serde_json::to_string(&body.0).unwrap()))
+        .unwrap()
+}
+
+fn internal_error_response() -> Response<Body> {
+    let body = Json(serde_json::json!({
+        "error": "Internal server error"
+    }));
+
+    Response::builder()
+        .status(StatusCode::INTERNAL_SERVER_ERROR)
+        .header("Content-Type", "application/json")
+        .body(Body::from(serde_json::to_string(&body.0).unwrap()))
+        .unwrap()
 }

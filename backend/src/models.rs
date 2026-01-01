@@ -216,21 +216,21 @@ pub struct SearchGamesQuery {
     #[serde(default)]
     pub search: Option<String>,
     #[serde(default = "default_limit")]
-    pub limit: i64,
+    pub limit: u32,
     #[serde(default)]
-    pub offset: i64,
+    pub offset: u64,
 }
 
-fn default_limit() -> i64 {
+fn default_limit() -> u32 {
     20
 }
 
 #[derive(Debug, Serialize)]
 pub struct SearchGamesResponse {
     pub games: Vec<GameSummary>,
-    pub total: i64,
-    pub limit: i64,
-    pub offset: i64,
+    pub total: u64,
+    pub limit: u32,
+    pub offset: u64,
 }
 
 #[derive(Debug, Serialize)]
@@ -241,12 +241,12 @@ pub struct GameSummary {
     pub organizer_email: String,
     pub created_at: DateTime<Utc>,
     pub drawn: bool,
-    pub participant_count: i64,
+    pub participant_count: u64,
 }
 
 #[derive(Debug, Serialize)]
 pub struct GameDetailResponse {
     pub game: Game,
     pub participants: Vec<Participant>,
-    pub participant_count: i64,
+    pub participant_count: u64,
 }
