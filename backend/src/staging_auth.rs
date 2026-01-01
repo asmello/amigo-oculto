@@ -17,6 +17,13 @@ use std::{
 };
 use tower::{Layer, Service};
 
+/// Name of the header that contains the secret token.
+///
+/// This should be set by the proxy so that requests will be accepted by the
+/// server. Without it, the server will produce a 403 response.
+///
+/// Note that we can't use the `CF-` prefix as that's reserved for Cloudflare's
+/// own headers.
 const HEADER_NAME: &str = "X-Staging-Secret";
 
 /// Configuration for staging authentication.
@@ -92,40 +99,45 @@ where
     }
 
     fn call(&mut self, req: Request<Body>) -> Self::Future {
-        // If no secret configured, pass through (disabled)
-        let Some(expected_secret) = &self.config.secret else {
-            let future = self.inner.call(req);
-            return Box::pin(future);
-        };
-
         // Allow CORS preflight requests
         if req.method() == Method::OPTIONS {
-            let future = self.inner.call(req);
-            return Box::pin(future);
+            return Box::pin(self.inner.call(req));
         }
 
-        // Validate the header
-        let header_value = req.headers().get(HEADER_NAME).and_then(|v| v.to_str().ok());
+        // If no secret configured, pass through (disabled)
+        let Some(expected_secret) = &self.config.secret else {
+            return Box::pin(self.inner.call(req));
+        };
 
-        if header_value == Some(expected_secret.as_str()) {
-            // Valid header, proceed
-            let future = self.inner.call(req);
-            Box::pin(future)
+        macro_rules! handle_error {
+            ($cause:literal) => {{
+                let client_ip = req
+                    .headers()
+                    .get("x-forwarded-for")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("unknown");
+
+                tracing::warn!(
+                    "staging auth denied: {} {HEADER_NAME} header from {client_ip}",
+                    $cause
+                );
+
+                return Box::pin(async move { Ok(forbidden_response()) });
+            }};
+        }
+
+        let Some(value) = req.headers().get(HEADER_NAME) else {
+            handle_error!("missing")
+        };
+
+        let Ok(value) = value.to_str() else {
+            handle_error!("incorrectly encoded")
+        };
+
+        if value == expected_secret.as_str() {
+            Box::pin(self.inner.call(req))
         } else {
-            // Missing or invalid header
-            let client_ip = req
-                .headers()
-                .get("x-forwarded-for")
-                .and_then(|v| v.to_str().ok())
-                .unwrap_or("unknown");
-
-            tracing::warn!(
-                "Staging auth denied: missing/invalid {} header from {}",
-                HEADER_NAME,
-                client_ip
-            );
-
-            Box::pin(async move { Ok(forbidden_response()) })
+            handle_error!("invalid")
         }
     }
 }
