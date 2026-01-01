@@ -1,5 +1,5 @@
 use crate::models::{EmailVerification, Game, Participant};
-use crate::token::{AdminToken, GameId, ParticipantId, VerificationId, ViewToken};
+use crate::token::{AdminSessionToken, AdminToken, GameId, ParticipantId, VerificationId, ViewToken};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Duration, Utc};
 use sqlx::{
@@ -74,6 +74,22 @@ async fn init_db(database_url: &str) -> Result<SqlitePool> {
 
         CREATE INDEX IF NOT EXISTS idx_email_resends_game_id ON email_resends(game_id);
         CREATE INDEX IF NOT EXISTS idx_email_resends_participant_id ON email_resends(participant_id);
+
+        CREATE TABLE IF NOT EXISTS site_admin_password (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            password_hash TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS admin_sessions (
+            id TEXT PRIMARY KEY,
+            session_token TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_admin_sessions_token ON admin_sessions(session_token);
+        CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires ON admin_sessions(expires_at);
         "#,
     )
     .execute(&pool)
@@ -632,7 +648,7 @@ impl Database {
         Ok(row.get("count"))
     }
 
-    pub async fn count_participants_in_game(&self, game_id: GameId) -> Result<i64> {
+    pub async fn count_participants_in_game(&self, game_id: GameId) -> Result<u64> {
         let row = sqlx::query(
             r#"
             SELECT COUNT(*) as count
@@ -644,7 +660,270 @@ impl Database {
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(row.get("count"))
+        let count: i64 = row.get("count");
+        u64::try_from(count).context("converting participant count to u64")
+    }
+
+    // Site admin authentication functions
+
+    /// Initialize the site admin password from environment variable if not set.
+    /// This should be called on startup.
+    pub async fn init_site_admin_password(&self) -> Result<()> {
+        // Check if password is already set
+        let existing = sqlx::query("SELECT id FROM site_admin_password WHERE id = 1")
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if existing.is_some() {
+            tracing::info!("site admin password already initialized");
+            return Ok(());
+        }
+
+        // Get password from environment
+        let password = std::env::var("SITE_ADMIN_PASSWORD")
+            .context("SITE_ADMIN_PASSWORD not set and no password in database")?;
+
+        if password.is_empty() {
+            anyhow::bail!("SITE_ADMIN_PASSWORD cannot be empty");
+        }
+
+        // Hash password
+        let password_hash = bcrypt::hash(&password, bcrypt::DEFAULT_COST)
+            .context("hashing site admin password")?;
+
+        // Store in database
+        sqlx::query(
+            r#"
+            INSERT INTO site_admin_password (id, password_hash, updated_at)
+            VALUES (1, ?, ?)
+            "#,
+        )
+        .bind(&password_hash)
+        .bind(Utc::now())
+        .execute(&self.pool)
+        .await
+        .context("storing site admin password")?;
+
+        tracing::info!("site admin password initialized from environment");
+        Ok(())
+    }
+
+    /// Verify the site admin password and return true if correct.
+    pub async fn verify_site_admin_password(&self, password: &str) -> Result<bool> {
+        let row = sqlx::query(
+            r#"
+            SELECT password_hash
+            FROM site_admin_password
+            WHERE id = 1
+            "#,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .context("fetching site admin password hash")?;
+
+        let Some(row) = row else {
+            tracing::warn!("site admin password not initialized");
+            return Ok(false);
+        };
+
+        let password_hash: String = row.get("password_hash");
+        bcrypt::verify(password, &password_hash).context("verifying site admin password")
+    }
+
+    /// Change the site admin password. Requires the current password.
+    pub async fn change_site_admin_password(
+        &self,
+        current_password: &str,
+        new_password: &str,
+    ) -> Result<bool> {
+        // Verify current password
+        if !self.verify_site_admin_password(current_password).await? {
+            return Ok(false);
+        }
+
+        // Hash new password
+        let new_hash = bcrypt::hash(new_password, bcrypt::DEFAULT_COST)
+            .context("hashing new site admin password")?;
+
+        // Update in database
+        sqlx::query(
+            r#"
+            UPDATE site_admin_password
+            SET password_hash = ?, updated_at = ?
+            WHERE id = 1
+            "#,
+        )
+        .bind(&new_hash)
+        .bind(Utc::now())
+        .execute(&self.pool)
+        .await
+        .context("updating site admin password")?;
+
+        tracing::info!("site admin password changed");
+        Ok(true)
+    }
+
+    /// Create a new admin session and return the session token.
+    /// Sessions expire after 24 hours.
+    pub async fn create_admin_session(&self) -> Result<AdminSessionToken> {
+        let session_token = AdminSessionToken::generate();
+        let id = Ulid::new().to_string();
+        let created_at = Utc::now();
+        let expires_at = created_at + Duration::hours(24);
+
+        sqlx::query(
+            r#"
+            INSERT INTO admin_sessions (id, session_token, created_at, expires_at)
+            VALUES (?, ?, ?, ?)
+            "#,
+        )
+        .bind(&id)
+        .bind(&session_token)
+        .bind(created_at)
+        .bind(expires_at)
+        .execute(&self.pool)
+        .await
+        .context("creating admin session")?;
+
+        Ok(session_token)
+    }
+
+    /// Validate an admin session token. Returns true if valid and not expired.
+    pub async fn validate_admin_session(&self, session_token: &AdminSessionToken) -> Result<bool> {
+        let row = sqlx::query(
+            r#"
+            SELECT expires_at
+            FROM admin_sessions
+            WHERE session_token = ?
+            "#,
+        )
+        .bind(session_token)
+        .fetch_optional(&self.pool)
+        .await
+        .context("fetching admin session")?;
+
+        let Some(row) = row else {
+            return Ok(false);
+        };
+
+        let expires_at: DateTime<Utc> = row.get("expires_at");
+        Ok(Utc::now() < expires_at)
+    }
+
+    /// Delete an admin session (logout).
+    pub async fn delete_admin_session(&self, session_token: &AdminSessionToken) -> Result<()> {
+        sqlx::query(
+            r#"
+            DELETE FROM admin_sessions
+            WHERE session_token = ?
+            "#,
+        )
+        .bind(session_token)
+        .execute(&self.pool)
+        .await
+        .context("deleting admin session")?;
+
+        Ok(())
+    }
+
+    /// Clean up expired admin sessions. Returns the number of sessions deleted.
+    pub async fn cleanup_expired_admin_sessions(&self) -> Result<u64> {
+        let now = Utc::now();
+        let result = sqlx::query(
+            r#"
+            DELETE FROM admin_sessions
+            WHERE expires_at < ?
+            "#,
+        )
+        .bind(now)
+        .execute(&self.pool)
+        .await
+        .context("cleaning up expired admin sessions")?;
+
+        Ok(result.rows_affected())
+    }
+
+    // Site admin game management functions
+
+    /// Search for games by name, organizer email, or game ID.
+    /// Returns paginated results ordered by created_at DESC.
+    pub async fn search_games(
+        &self,
+        search: Option<&str>,
+        limit: u32,
+        offset: u64,
+    ) -> Result<Vec<Game>> {
+        // Convert to i64 for SQLite binding
+        let limit_i64 = i64::from(limit);
+        let offset_i64 = i64::try_from(offset).context("offset too large for database")?;
+
+        let query = if let Some(search_term) = search {
+            sqlx::query(
+                r#"
+                SELECT id, name, event_date, organizer_email, admin_token, created_at, drawn
+                FROM games
+                WHERE name LIKE ? OR organizer_email LIKE ? OR id LIKE ?
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+                "#,
+            )
+            .bind(format!("%{}%", search_term))
+            .bind(format!("%{}%", search_term))
+            .bind(format!("%{}%", search_term))
+            .bind(limit_i64)
+            .bind(offset_i64)
+        } else {
+            sqlx::query(
+                r#"
+                SELECT id, name, event_date, organizer_email, admin_token, created_at, drawn
+                FROM games
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+                "#,
+            )
+            .bind(limit_i64)
+            .bind(offset_i64)
+        };
+
+        let rows = query.fetch_all(&self.pool).await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| Game {
+                id: r.get("id"),
+                name: r.get("name"),
+                event_date: r.get("event_date"),
+                organizer_email: r.get("organizer_email"),
+                admin_token: r.get("admin_token"),
+                created_at: r.get("created_at"),
+                drawn: r.get::<i32, _>("drawn") != 0,
+            })
+            .collect())
+    }
+
+    /// Count total games matching search criteria.
+    pub async fn count_games(&self, search: Option<&str>) -> Result<u64> {
+        let row = if let Some(search_term) = search {
+            sqlx::query(
+                r#"
+                SELECT COUNT(*) as count
+                FROM games
+                WHERE name LIKE ? OR organizer_email LIKE ? OR id LIKE ?
+                "#,
+            )
+            .bind(format!("%{}%", search_term))
+            .bind(format!("%{}%", search_term))
+            .bind(format!("%{}%", search_term))
+            .fetch_one(&self.pool)
+            .await?
+        } else {
+            sqlx::query("SELECT COUNT(*) as count FROM games")
+                .fetch_one(&self.pool)
+                .await?
+        };
+
+        let count: i64 = row.get("count");
+        u64::try_from(count).context("converting game count to u64")
     }
 }
 

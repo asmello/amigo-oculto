@@ -3,12 +3,15 @@ use crate::{
     email::EmailService,
     matching,
     models::*,
+    site_admin_auth,
     staging_auth::StagingAuthLayer,
     token::{AdminToken, GameId, ParticipantId, ViewToken},
 };
+use anyhow::Context;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
+    middleware,
     response::IntoResponse,
     routing::{get, get_service, patch, post},
     Json, Router,
@@ -23,10 +26,24 @@ use tower_http::{
 };
 
 /// Maximum number of participants allowed per game to prevent abuse
-const MAX_PARTICIPANTS_PER_GAME: i64 = 100;
+const MAX_PARTICIPANTS_PER_GAME: u64 = 100;
 
 pub fn make(db: Database, email_service: EmailService) -> Router {
     let state = Arc::new(AppState { db, email_service });
+
+    // Site admin protected routes (require authentication)
+    let site_admin_protected = Router::new()
+        .route("/change-password", post(site_admin_change_password))
+        .route("/games", get(site_admin_search_games))
+        .route(
+            "/games/{game_id}",
+            get(site_admin_get_game).delete(site_admin_delete_game),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.db.clone(),
+            site_admin_auth::require_site_admin,
+        ))
+        .with_state(state.clone());
 
     let api_routes = Router::new()
         .route("/verifications/request", post(request_verification))
@@ -46,6 +63,10 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
         )
         .route("/games/{game_id}", get(get_game_status).delete(delete_game))
         .route("/reveal/{view_token}", get(reveal_match))
+        // Site admin public routes (no authentication required)
+        .route("/site-admin/login", post(site_admin_login))
+        // Site admin protected routes
+        .nest("/site-admin", site_admin_protected)
         .with_state(state);
 
     let cors = CorsLayer::new()
@@ -815,6 +836,163 @@ pub async fn resend_verification(
         success: true,
         error: None,
     }))
+}
+
+// Site admin endpoints
+
+/// POST /api/site-admin/login - Authenticate with password and get session token
+pub async fn site_admin_login(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<SiteAdminLoginRequest>,
+) -> Result<Json<SiteAdminLoginResponse>, AppError> {
+    // Verify password
+    let valid = state
+        .db
+        .verify_site_admin_password(&req.password)
+        .await?;
+
+    if !valid {
+        tracing::warn!("failed site admin login attempt");
+        return Err(AppError::Unauthorized(
+            "Senha incorreta".to_string(),
+        ));
+    }
+
+    // Create session
+    let session_token = state.db.create_admin_session().await?;
+    let expires_at = Utc::now() + Duration::hours(24);
+
+    tracing::info!("site admin logged in");
+
+    Ok(Json(SiteAdminLoginResponse {
+        session_token: session_token.to_string(),
+        expires_at,
+    }))
+}
+
+/// POST /api/site-admin/change-password - Change the site admin password
+pub async fn site_admin_change_password(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<ChangePasswordRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    // Validate new password
+    if req.new_password.is_empty() {
+        return Err(AppError::BadRequest("Nova senha não pode ser vazia".to_string()));
+    }
+
+    if req.new_password.len() < 8 {
+        return Err(AppError::BadRequest(
+            "Nova senha deve ter pelo menos 8 caracteres".to_string(),
+        ));
+    }
+
+    // Change password
+    let success = state
+        .db
+        .change_site_admin_password(&req.current_password, &req.new_password)
+        .await?;
+
+    if !success {
+        return Err(AppError::Unauthorized(
+            "Senha atual incorreta".to_string(),
+        ));
+    }
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "Senha alterada com sucesso"
+    })))
+}
+
+/// GET /api/site-admin/games - Search and list games with pagination
+pub async fn site_admin_search_games(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<SearchGamesQuery>,
+) -> Result<Json<SearchGamesResponse>, AppError> {
+    // Validate pagination parameters
+    let limit = query.limit.clamp(1, 100);
+    let offset = query.offset.max(0);
+
+    // Search games
+    let games = state
+        .db
+        .search_games(query.search.as_deref(), limit, offset)
+        .await?;
+
+    // Get total count
+    let total = state.db.count_games(query.search.as_deref()).await?;
+
+    // Build response with participant counts
+    let mut game_summaries = Vec::new();
+    for game in games {
+        let participant_count = state.db.count_participants_in_game(game.id).await?;
+        game_summaries.push(GameSummary {
+            id: game.id,
+            name: game.name,
+            event_date: game.event_date,
+            organizer_email: game.organizer_email,
+            created_at: game.created_at,
+            drawn: game.drawn,
+            participant_count,
+        });
+    }
+
+    Ok(Json(SearchGamesResponse {
+        games: game_summaries,
+        total,
+        limit,
+        offset,
+    }))
+}
+
+/// GET /api/site-admin/games/:game_id - Get full game details including admin token
+pub async fn site_admin_get_game(
+    State(state): State<Arc<AppState>>,
+    Path(game_id): Path<GameId>,
+) -> Result<Json<GameDetailResponse>, AppError> {
+    let game = state
+        .db
+        .get_game_by_id(game_id)
+        .await?
+        .ok_or(AppError::NotFound("Jogo não encontrado".to_string()))?;
+
+    let participants = state.db.get_participants_by_game(game_id).await?;
+    let participant_count = u64::try_from(participants.len())
+        .context("converting participant count to u64")?;
+
+    Ok(Json(GameDetailResponse {
+        game,
+        participants,
+        participant_count,
+    }))
+}
+
+/// DELETE /api/site-admin/games/:game_id - Permanently delete a game
+pub async fn site_admin_delete_game(
+    State(state): State<Arc<AppState>>,
+    Path(game_id): Path<GameId>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    // Verify game exists
+    let game = state
+        .db
+        .get_game_by_id(game_id)
+        .await?
+        .ok_or(AppError::NotFound("Jogo não encontrado".to_string()))?;
+
+    // Delete game (participants will be cascade deleted)
+    state.db.delete_game(game_id).await?;
+
+    tracing::info!(
+        "site admin deleted game {} ({}) organized by {}",
+        game_id,
+        game.name,
+        game.organizer_email
+    );
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "Jogo excluído com sucesso"
+    })))
 }
 
 // Error handling

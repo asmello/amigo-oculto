@@ -5,6 +5,7 @@ mod matching;
 mod models;
 mod routes;
 mod server;
+mod site_admin_auth;
 mod staging_auth;
 mod token;
 
@@ -29,6 +30,10 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
     let db = Database::from_env().await?;
+
+    // Initialize site admin password if not already set
+    db.init_site_admin_password().await.context("initializing site admin password")?;
+
     let cancel = CancellationToken::new();
     let server = Server::new(&db, cancel.clone())?;
     let email_service = EmailService::from_env()?;
