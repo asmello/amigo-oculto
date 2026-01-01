@@ -661,7 +661,7 @@ impl Database {
         .await?;
 
         let count: i64 = row.get("count");
-        Ok(count as u64)
+        u64::try_from(count).context("converting participant count to u64")
     }
 
     // Site admin authentication functions
@@ -853,6 +853,10 @@ impl Database {
         limit: u32,
         offset: u64,
     ) -> Result<Vec<Game>> {
+        // Convert to i64 for SQLite binding
+        let limit_i64 = i64::from(limit);
+        let offset_i64 = i64::try_from(offset).context("offset too large for database")?;
+
         let query = if let Some(search_term) = search {
             sqlx::query(
                 r#"
@@ -866,8 +870,8 @@ impl Database {
             .bind(format!("%{}%", search_term))
             .bind(format!("%{}%", search_term))
             .bind(format!("%{}%", search_term))
-            .bind(limit as i64)
-            .bind(offset as i64)
+            .bind(limit_i64)
+            .bind(offset_i64)
         } else {
             sqlx::query(
                 r#"
@@ -877,8 +881,8 @@ impl Database {
                 LIMIT ? OFFSET ?
                 "#,
             )
-            .bind(limit as i64)
-            .bind(offset as i64)
+            .bind(limit_i64)
+            .bind(offset_i64)
         };
 
         let rows = query.fetch_all(&self.pool).await?;
@@ -919,7 +923,7 @@ impl Database {
         };
 
         let count: i64 = row.get("count");
-        Ok(count as u64)
+        u64::try_from(count).context("converting game count to u64")
     }
 }
 

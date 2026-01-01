@@ -3,13 +3,15 @@ use crate::{
     email::EmailService,
     matching,
     models::*,
-    site_admin_auth::SiteAdminLayer,
+    site_admin_auth,
     staging_auth::StagingAuthLayer,
     token::{AdminToken, GameId, ParticipantId, ViewToken},
 };
+use anyhow::Context;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
+    middleware,
     response::IntoResponse,
     routing::{get, get_service, patch, post},
     Json, Router,
@@ -27,10 +29,7 @@ use tower_http::{
 const MAX_PARTICIPANTS_PER_GAME: u64 = 100;
 
 pub fn make(db: Database, email_service: EmailService) -> Router {
-    let state = Arc::new(AppState {
-        db: db.clone(),
-        email_service,
-    });
+    let state = Arc::new(AppState { db, email_service });
 
     // Site admin protected routes (require authentication)
     let site_admin_protected = Router::new()
@@ -40,7 +39,10 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
             "/games/{game_id}",
             get(site_admin_get_game).delete(site_admin_delete_game),
         )
-        .layer(SiteAdminLayer::new(db))
+        .layer(middleware::from_fn_with_state(
+            state.db.clone(),
+            site_admin_auth::require_site_admin,
+        ))
         .with_state(state.clone());
 
     let api_routes = Router::new()
@@ -955,7 +957,8 @@ pub async fn site_admin_get_game(
         .ok_or(AppError::NotFound("Jogo não encontrado".to_string()))?;
 
     let participants = state.db.get_participants_by_game(game_id).await?;
-    let participant_count = participants.len() as u64;
+    let participant_count = u64::try_from(participants.len())
+        .context("converting participant count to u64")?;
 
     Ok(Json(GameDetailResponse {
         game,
