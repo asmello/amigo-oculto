@@ -18,6 +18,7 @@ processes = ['app']
 RUST_LOG = "debug"
 DATABASE_URL = "sqlite:///app/data/amigo_oculto.db"
 BASE_URL = "https://staging.amigoocultosimples.app/"
+STATIC_DIR = "/app/public"
 
 [[vm]]
 memory = '512mb'
