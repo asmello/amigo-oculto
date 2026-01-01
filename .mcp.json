@@ -11,6 +11,10 @@
         "DOCKER_CONTAINER=true",
         "mcp/puppeteer"
       ]
+    },
+    "git": {
+      "command": "uvx",
+      "args": ["mcp-server-git"]
     }
   }
 }
