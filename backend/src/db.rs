@@ -1,9 +1,10 @@
 use crate::models::{EmailVerification, Game, Participant};
+use crate::token::{AdminToken, GameId, ParticipantId, VerificationId, ViewToken};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use sqlx::{
-    Row, Sqlite,
     sqlite::{SqliteConnectOptions, SqlitePool},
+    Row, Sqlite,
 };
 use std::str::FromStr;
 use ulid::Ulid;
@@ -106,7 +107,7 @@ impl Database {
             VALUES (?, ?, ?, ?, ?, ?, ?)
             "#,
         )
-        .bind(&game.id)
+        .bind(game.id)
         .bind(&game.name)
         .bind(&game.event_date)
         .bind(&game.organizer_email)
@@ -119,7 +120,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_game_by_id(&self, game_id: &str) -> Result<Option<Game>> {
+    pub async fn get_game_by_id(&self, game_id: GameId) -> Result<Option<Game>> {
         let row = sqlx::query(
             r#"
             SELECT id, name, event_date, organizer_email, admin_token, created_at, drawn
@@ -142,7 +143,7 @@ impl Database {
         }))
     }
 
-    pub async fn get_game_by_admin_token(&self, admin_token: &str) -> Result<Option<Game>> {
+    pub async fn get_game_by_admin_token(&self, admin_token: &AdminToken) -> Result<Option<Game>> {
         let row = sqlx::query(
             r#"
             SELECT id, name, event_date, organizer_email, admin_token, created_at, drawn
@@ -181,11 +182,11 @@ impl Database {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
-        .bind(&participant.id)
-        .bind(&participant.game_id)
+        .bind(participant.id)
+        .bind(participant.game_id)
         .bind(&participant.name)
         .bind(&participant.email)
-        .bind(&participant.matched_with_id)
+        .bind(participant.matched_with_id)
         .bind(&participant.view_token)
         .bind(participant.has_viewed)
         .bind(participant.created_at.to_rfc3339())
@@ -195,7 +196,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_participants_by_game(&self, game_id: &str) -> Result<Vec<Participant>> {
+    pub async fn get_participants_by_game(&self, game_id: GameId) -> Result<Vec<Participant>> {
         let rows = sqlx::query(
             r#"
             SELECT id, game_id, name, email, matched_with_id, view_token, has_viewed, created_at
@@ -225,7 +226,7 @@ impl Database {
 
     pub async fn get_participant_by_view_token(
         &self,
-        view_token: &str,
+        view_token: &ViewToken,
     ) -> Result<Option<Participant>> {
         let row = sqlx::query(
             r#"
@@ -250,7 +251,7 @@ impl Database {
         }))
     }
 
-    pub async fn mark_participant_viewed(&self, participant_id: &str) -> Result<()> {
+    pub async fn mark_participant_viewed(&self, participant_id: ParticipantId) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE participants
@@ -265,7 +266,10 @@ impl Database {
         Ok(())
     }
 
-    pub async fn get_participant_by_id(&self, participant_id: &str) -> Result<Option<Participant>> {
+    pub async fn get_participant_by_id(
+        &self,
+        participant_id: ParticipantId,
+    ) -> Result<Option<Participant>> {
         let row = sqlx::query(
             r#"
             SELECT id, game_id, name, email, matched_with_id, view_token, has_viewed, created_at
@@ -291,7 +295,7 @@ impl Database {
 
     pub async fn update_participant(
         &self,
-        participant_id: &str,
+        participant_id: ParticipantId,
         name: Option<String>,
         email: Option<String>,
     ) -> Result<()> {
@@ -327,7 +331,7 @@ impl Database {
         Ok(())
     }
 
-    pub async fn delete_game(&self, game_id: &str) -> Result<()> {
+    pub async fn delete_game(&self, game_id: GameId) -> Result<()> {
         // CASCADE delete will automatically remove participants
         sqlx::query(
             r#"
@@ -345,12 +349,12 @@ impl Database {
     // Email verification functions
     pub async fn create_email_verification(&self, verification: &EmailVerification) -> Result<()> {
         sqlx::query(
-        r#"
+            r#"
             INSERT INTO email_verifications (id, email, code, game_name, event_date, created_at, expires_at, verified, attempts)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
-        .bind(&verification.id)
+        .bind(verification.id)
         .bind(&verification.email)
         .bind(&verification.code)
         .bind(&verification.game_name)
@@ -367,7 +371,7 @@ impl Database {
 
     pub async fn get_email_verification_by_id(
         &self,
-        verification_id: &str,
+        verification_id: VerificationId,
     ) -> Result<Option<EmailVerification>> {
         let row = sqlx::query(
             r#"
@@ -393,7 +397,10 @@ impl Database {
         }))
     }
 
-    pub async fn increment_verification_attempts(&self, verification_id: &str) -> Result<()> {
+    pub async fn increment_verification_attempts(
+        &self,
+        verification_id: VerificationId,
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE email_verifications
@@ -408,7 +415,10 @@ impl Database {
         Ok(())
     }
 
-    pub async fn mark_verification_as_verified(&self, verification_id: &str) -> Result<()> {
+    pub async fn mark_verification_as_verified(
+        &self,
+        verification_id: VerificationId,
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE email_verifications
@@ -445,7 +455,7 @@ impl Database {
 
     pub async fn update_verification_code(
         &self,
-        verification_id: &str,
+        verification_id: VerificationId,
         new_code: &str,
         new_expires_at: DateTime<Utc>,
     ) -> Result<()> {
@@ -483,8 +493,8 @@ impl Database {
     // Email resend tracking functions
     pub async fn record_email_resend(
         &self,
-        game_id: &str,
-        participant_id: Option<&str>,
+        game_id: GameId,
+        participant_id: Option<ParticipantId>,
         resend_type: &str,
     ) -> Result<()> {
         let id = Ulid::new().to_string();
@@ -509,7 +519,7 @@ impl Database {
 
     pub async fn count_recent_participant_resends(
         &self,
-        participant_id: &str,
+        participant_id: ParticipantId,
         since: DateTime<Utc>,
     ) -> Result<i64> {
         let row = sqlx::query(
@@ -527,7 +537,7 @@ impl Database {
         Ok(row.get("count"))
     }
 
-    pub async fn count_total_participant_resends(&self, participant_id: &str) -> Result<i64> {
+    pub async fn count_total_participant_resends(&self, participant_id: ParticipantId) -> Result<i64> {
         let row = sqlx::query(
             r#"
             SELECT COUNT(*) as count
@@ -544,7 +554,7 @@ impl Database {
 
     pub async fn count_recent_bulk_resends(
         &self,
-        game_id: &str,
+        game_id: GameId,
         since: DateTime<Utc>,
     ) -> Result<i64> {
         let row = sqlx::query(
@@ -562,7 +572,7 @@ impl Database {
         Ok(row.get("count"))
     }
 
-    pub async fn count_total_bulk_resends(&self, game_id: &str) -> Result<i64> {
+    pub async fn count_total_bulk_resends(&self, game_id: GameId) -> Result<i64> {
         let row = sqlx::query(
             r#"
             SELECT COUNT(*) as count
@@ -577,7 +587,7 @@ impl Database {
         Ok(row.get("count"))
     }
 
-    pub async fn count_participants_in_game(&self, game_id: &str) -> Result<i64> {
+    pub async fn count_participants_in_game(&self, game_id: GameId) -> Result<i64> {
         let row = sqlx::query(
             r#"
             SELECT COUNT(*) as count
@@ -606,7 +616,7 @@ impl Transaction {
         Ok(())
     }
 
-    pub async fn get_game_by_id(&mut self, game_id: &str) -> Result<Option<Game>> {
+    pub async fn get_game_by_id(&mut self, game_id: GameId) -> Result<Option<Game>> {
         let row = sqlx::query(
             r#"
             SELECT id, name, event_date, organizer_email, admin_token, created_at, drawn
@@ -629,7 +639,7 @@ impl Transaction {
         }))
     }
 
-    pub async fn get_participants_by_game(&mut self, game_id: &str) -> Result<Vec<Participant>> {
+    pub async fn get_participants_by_game(&mut self, game_id: GameId) -> Result<Vec<Participant>> {
         let rows = sqlx::query(
             r#"
             SELECT id, game_id, name, email, matched_with_id, view_token, has_viewed, created_at
@@ -657,7 +667,10 @@ impl Transaction {
             .collect())
     }
 
-    pub async fn update_participant_matches(&mut self, matches: &[(String, String)]) -> Result<()> {
+    pub async fn update_participant_matches(
+        &mut self,
+        matches: &[(ParticipantId, ParticipantId)],
+    ) -> Result<()> {
         for (participant_id, matched_with_id) in matches {
             sqlx::query(
                 r#"
@@ -675,7 +688,7 @@ impl Transaction {
         Ok(())
     }
 
-    pub async fn mark_game_as_drawn(&mut self, game_id: &str) -> Result<()> {
+    pub async fn mark_game_as_drawn(&mut self, game_id: GameId) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE games

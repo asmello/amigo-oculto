@@ -1,11 +1,10 @@
+use crate::token::{AdminToken, GameId, ParticipantId, VerificationId, ViewToken};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use ulid::Ulid;
-use crate::token::SecureToken;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmailVerification {
-    pub id: String,
+    pub id: VerificationId,
     pub email: String,
     pub code: String,
     pub game_name: String,
@@ -23,9 +22,9 @@ impl EmailVerification {
         let code = format!("{:06}", rng.gen_range(0..1000000));
         let created_at = Utc::now();
         let expires_at = created_at + chrono::Duration::minutes(15);
-        
+
         Self {
-            id: Ulid::new().to_string(),
+            id: VerificationId::new(),
             email,
             code,
             game_name,
@@ -48,23 +47,23 @@ impl EmailVerification {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Game {
-    pub id: String,
+    pub id: GameId,
     pub name: String,
     pub event_date: String,
     pub organizer_email: String,
-    pub admin_token: SecureToken,
+    pub admin_token: AdminToken,
     pub created_at: DateTime<Utc>,
     pub drawn: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Participant {
-    pub id: String,
-    pub game_id: String,
+    pub id: ParticipantId,
+    pub game_id: GameId,
     pub name: String,
     pub email: String,
-    pub matched_with_id: Option<String>,
-    pub view_token: SecureToken,
+    pub matched_with_id: Option<ParticipantId>,
+    pub view_token: ViewToken,
     pub has_viewed: bool,
     pub created_at: DateTime<Utc>,
 }
@@ -78,7 +77,7 @@ pub struct CreateGameRequest {
 
 #[derive(Debug, Serialize)]
 pub struct CreateGameResponse {
-    pub game_id: String,
+    pub game_id: GameId,
     pub admin_token: String,
 }
 
@@ -90,7 +89,7 @@ pub struct AddParticipantRequest {
 
 #[derive(Debug, Serialize)]
 pub struct AddParticipantResponse {
-    pub participant_id: String,
+    pub participant_id: ParticipantId,
 }
 
 #[derive(Debug, Deserialize)]
@@ -107,7 +106,7 @@ pub struct GameStatusResponse {
 
 #[derive(Debug, Serialize)]
 pub struct ParticipantStatus {
-    pub id: String,
+    pub id: ParticipantId,
     pub name: String,
     pub email: String,
     pub has_viewed: bool,
@@ -130,12 +129,12 @@ pub struct RequestVerificationRequest {
 
 #[derive(Debug, Serialize)]
 pub struct RequestVerificationResponse {
-    pub verification_id: String,
+    pub verification_id: VerificationId,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct VerifyCodeRequest {
-    pub verification_id: String,
+    pub verification_id: VerificationId,
     pub code: String,
 }
 
@@ -143,7 +142,7 @@ pub struct VerifyCodeRequest {
 pub struct VerifyCodeResponse {
     pub success: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub game_id: Option<String>,
+    pub game_id: Option<GameId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub admin_token: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -154,7 +153,7 @@ pub struct VerifyCodeResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct ResendVerificationRequest {
-    pub verification_id: String,
+    pub verification_id: VerificationId,
 }
 
 #[derive(Debug, Serialize)]
@@ -167,11 +166,11 @@ pub struct ResendVerificationResponse {
 impl Game {
     pub fn new(name: String, event_date: String, organizer_email: String) -> Self {
         Self {
-            id: Ulid::new().to_string(),
+            id: GameId::new(),
             name,
             event_date,
             organizer_email,
-            admin_token: SecureToken::generate(),
+            admin_token: AdminToken::generate(),
             created_at: Utc::now(),
             drawn: false,
         }
@@ -179,14 +178,14 @@ impl Game {
 }
 
 impl Participant {
-    pub fn new(game_id: String, name: String, email: String) -> Self {
+    pub fn new(game_id: GameId, name: String, email: String) -> Self {
         Self {
-            id: Ulid::new().to_string(),
+            id: ParticipantId::new(),
             game_id,
             name,
             email,
             matched_with_id: None,
-            view_token: SecureToken::generate(),
+            view_token: ViewToken::generate(),
             has_viewed: false,
             created_at: Utc::now(),
         }

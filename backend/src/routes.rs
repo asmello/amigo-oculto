@@ -4,13 +4,14 @@ use crate::{
     matching,
     models::*,
     staging_auth::StagingAuthLayer,
+    token::{AdminToken, GameId, ParticipantId, ViewToken},
 };
 use axum::{
-    Json, Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, get_service, patch, post},
+    Json, Router,
 };
 use chrono::{Duration, Utc};
 use serde::Deserialize;
@@ -85,7 +86,7 @@ pub struct AppState {
 
 #[derive(Deserialize)]
 pub struct AdminQuery {
-    pub admin_token: String,
+    pub admin_token: AdminToken,
 }
 
 // POST /api/games - Create a new game
@@ -105,13 +106,13 @@ pub async fn create_game(
 // POST /api/games/:game_id/participants - Add a participant to a game
 pub async fn add_participant(
     State(state): State<Arc<AppState>>,
-    Path(game_id): Path<String>,
+    Path(game_id): Path<GameId>,
     Json(req): Json<AddParticipantRequest>,
 ) -> Result<Json<AddParticipantResponse>, AppError> {
     // Check if game exists
     let game = state
         .db
-        .get_game_by_id(&game_id)
+        .get_game_by_id(game_id)
         .await?
         .ok_or(AppError::NotFound("Jogo não encontrado".to_string()))?;
 
@@ -124,7 +125,7 @@ pub async fn add_participant(
     }
 
     // Check participant limit to prevent abuse
-    let participant_count = state.db.count_participants_in_game(&game_id).await?;
+    let participant_count = state.db.count_participants_in_game(game_id).await?;
     if participant_count >= MAX_PARTICIPANTS_PER_GAME {
         return Err(AppError::BadRequest(format!(
             "Limite máximo de {} participantes atingido",
@@ -143,14 +144,14 @@ pub async fn add_participant(
 // POST /api/games/:game_id/draw - Generate matches and send emails
 pub async fn draw_game(
     State(state): State<Arc<AppState>>,
-    Path(game_id): Path<String>,
+    Path(game_id): Path<GameId>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     // Start a transaction to prevent race conditions
     let mut tx = state.db.begin().await?;
 
     // Get game with lock (IMMEDIATE transaction prevents concurrent draws)
     let game = tx
-        .get_game_by_id(&game_id)
+        .get_game_by_id(game_id)
         .await?
         .ok_or(AppError::NotFound("Jogo não encontrado".to_string()))?;
 
@@ -162,7 +163,7 @@ pub async fn draw_game(
     }
 
     // Get participants
-    let participants = tx.get_participants_by_game(&game_id).await?;
+    let participants = tx.get_participants_by_game(game_id).await?;
     if participants.len() < 2 {
         return Err(AppError::BadRequest(
             "Precisa de pelo menos 2 participantes para fazer o sorteio".to_string(),
@@ -174,7 +175,7 @@ pub async fn draw_game(
 
     // Save matches and mark as drawn (all within transaction)
     tx.update_participant_matches(&matches).await?;
-    tx.mark_game_as_drawn(&game_id).await?;
+    tx.mark_game_as_drawn(game_id).await?;
 
     // Commit transaction before sending emails
     tx.commit().await?;
@@ -203,7 +204,7 @@ pub async fn draw_game(
             &game.organizer_email,
             &game.name,
             &game.event_date,
-            &game.id,
+            game.id,
             &game.admin_token,
             participants.len(),
         )
@@ -221,7 +222,7 @@ pub async fn draw_game(
 // GET /api/games/:game_id?admin_token=xxx - Get game status (organizer view)
 pub async fn get_game_status(
     State(state): State<Arc<AppState>>,
-    Path(game_id): Path<String>,
+    Path(game_id): Path<GameId>,
     Query(query): Query<AdminQuery>,
 ) -> Result<Json<GameStatusResponse>, AppError> {
     // Get game by admin token
@@ -241,7 +242,7 @@ pub async fn get_game_status(
     }
 
     // Get participants
-    let participants = state.db.get_participants_by_game(&game_id).await?;
+    let participants = state.db.get_participants_by_game(game_id).await?;
 
     let participant_statuses: Vec<ParticipantStatus> = participants
         .into_iter()
@@ -262,7 +263,7 @@ pub async fn get_game_status(
 // POST /api/games/:game_id/resend-all - Resend emails to all participants
 pub async fn resend_all_emails(
     State(state): State<Arc<AppState>>,
-    Path(game_id): Path<String>,
+    Path(game_id): Path<GameId>,
     Query(query): Query<AdminQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     // Verify admin token
@@ -293,7 +294,7 @@ pub async fn resend_all_emails(
     let one_hour_ago = Utc::now() - Duration::hours(1);
     let recent_resends = state
         .db
-        .count_recent_bulk_resends(&game_id, one_hour_ago)
+        .count_recent_bulk_resends(game_id, one_hour_ago)
         .await?;
     if recent_resends > 0 {
         return Err(AppError::BadRequest(
@@ -302,7 +303,7 @@ pub async fn resend_all_emails(
     }
 
     // Check total bulk resends (lifetime limit)
-    let total_resends = state.db.count_total_bulk_resends(&game_id).await?;
+    let total_resends = state.db.count_total_bulk_resends(game_id).await?;
     if total_resends >= 3 {
         return Err(AppError::BadRequest(
             "Limite de 3 reenvios em massa atingido.".to_string(),
@@ -310,7 +311,7 @@ pub async fn resend_all_emails(
     }
 
     // Get all participants
-    let participants = state.db.get_participants_by_game(&game_id).await?;
+    let participants = state.db.get_participants_by_game(game_id).await?;
 
     // Resend emails to all participants
     let mut sent_count = 0;
@@ -337,7 +338,7 @@ pub async fn resend_all_emails(
     }
 
     // Record the bulk resend
-    state.db.record_email_resend(&game_id, None, "bulk").await?;
+    state.db.record_email_resend(game_id, None, "bulk").await?;
 
     Ok(Json(serde_json::json!({
         "success": true,
@@ -350,7 +351,7 @@ pub async fn resend_all_emails(
 // PATCH /api/games/:game_id/participants/:participant_id - Update participant details
 pub async fn update_participant(
     State(state): State<Arc<AppState>>,
-    Path((game_id, participant_id)): Path<(String, String)>,
+    Path((game_id, participant_id)): Path<(GameId, ParticipantId)>,
     Query(query): Query<AdminQuery>,
     Json(req): Json<UpdateParticipantRequest>,
 ) -> Result<Json<serde_json::Value>, AppError> {
@@ -373,7 +374,7 @@ pub async fn update_participant(
     // Get participant to verify it exists and belongs to this game
     let participant = state
         .db
-        .get_participant_by_id(&participant_id)
+        .get_participant_by_id(participant_id)
         .await?
         .ok_or(AppError::NotFound(
             "Participante não encontrado".to_string(),
@@ -395,7 +396,7 @@ pub async fn update_participant(
     // Update participant
     state
         .db
-        .update_participant(&participant_id, req.name, req.email)
+        .update_participant(participant_id, req.name, req.email)
         .await?;
 
     Ok(Json(serde_json::json!({
@@ -407,7 +408,7 @@ pub async fn update_participant(
 // POST /api/games/:game_id/participants/:participant_id/resend - Resend email to one participant
 pub async fn resend_participant_email(
     State(state): State<Arc<AppState>>,
-    Path((game_id, participant_id)): Path<(String, String)>,
+    Path((game_id, participant_id)): Path<(GameId, ParticipantId)>,
     Query(query): Query<AdminQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     // Verify admin token
@@ -436,7 +437,7 @@ pub async fn resend_participant_email(
     // Get participant
     let participant = state
         .db
-        .get_participant_by_id(&participant_id)
+        .get_participant_by_id(participant_id)
         .await?
         .ok_or(AppError::NotFound(
             "Participante não encontrado".to_string(),
@@ -453,7 +454,7 @@ pub async fn resend_participant_email(
     let one_hour_ago = Utc::now() - Duration::hours(1);
     let recent_resends = state
         .db
-        .count_recent_participant_resends(&participant_id, one_hour_ago)
+        .count_recent_participant_resends(participant_id, one_hour_ago)
         .await?;
     if recent_resends > 0 {
         return Err(AppError::BadRequest(
@@ -464,7 +465,7 @@ pub async fn resend_participant_email(
     // Check total individual resends (lifetime limit)
     let total_resends = state
         .db
-        .count_total_participant_resends(&participant_id)
+        .count_total_participant_resends(participant_id)
         .await?;
     if total_resends >= 3 {
         return Err(AppError::BadRequest(
@@ -487,7 +488,7 @@ pub async fn resend_participant_email(
     // Record the individual resend
     state
         .db
-        .record_email_resend(&game_id, Some(&participant_id), "individual")
+        .record_email_resend(game_id, Some(participant_id), "individual")
         .await?;
 
     Ok(Json(serde_json::json!({
@@ -499,7 +500,7 @@ pub async fn resend_participant_email(
 // DELETE /api/games/:game_id - Delete a game (requires admin_token)
 pub async fn delete_game(
     State(state): State<Arc<AppState>>,
-    Path(game_id): Path<String>,
+    Path(game_id): Path<GameId>,
     Query(query): Query<AdminQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     // Verify admin token
@@ -519,7 +520,7 @@ pub async fn delete_game(
     }
 
     // Delete game (participants will be cascade deleted)
-    state.db.delete_game(&game_id).await?;
+    state.db.delete_game(game_id).await?;
 
     Ok(Json(serde_json::json!({
         "success": true,
@@ -530,7 +531,7 @@ pub async fn delete_game(
 // GET /api/reveal/:view_token - View your match
 pub async fn reveal_match(
     State(state): State<Arc<AppState>>,
-    Path(view_token): Path<String>,
+    Path(view_token): Path<ViewToken>,
 ) -> Result<Json<RevealResponse>, AppError> {
     // Get participant by view token
     let participant = state
@@ -542,7 +543,7 @@ pub async fn reveal_match(
     // Check if game has been drawn
     let game = state
         .db
-        .get_game_by_id(&participant.game_id)
+        .get_game_by_id(participant.game_id)
         .await?
         .ok_or(AppError::NotFound("Jogo não encontrado".to_string()))?;
 
@@ -556,7 +557,6 @@ pub async fn reveal_match(
     // Get matched participant
     let matched_with_id = participant
         .matched_with_id
-        .as_ref()
         .ok_or(AppError::InternalError(
             "Sorteio ainda não foi realizado".to_string(),
         ))?;
@@ -571,7 +571,7 @@ pub async fn reveal_match(
 
     // Mark as viewed
     if !participant.has_viewed {
-        state.db.mark_participant_viewed(&participant.id).await?;
+        state.db.mark_participant_viewed(participant.id).await?;
     }
 
     Ok(Json(RevealResponse {
@@ -649,7 +649,7 @@ pub async fn verify_code(
     // Get verification
     let verification = state
         .db
-        .get_email_verification_by_id(&req.verification_id)
+        .get_email_verification_by_id(req.verification_id)
         .await?
         .ok_or(AppError::NotFound("Verificação não encontrada".to_string()))?;
 
@@ -689,7 +689,7 @@ pub async fn verify_code(
         // Increment attempts
         state
             .db
-            .increment_verification_attempts(&req.verification_id)
+            .increment_verification_attempts(req.verification_id)
             .await?;
 
         let attempts_remaining = 5 - (verification.attempts + 1);
@@ -717,7 +717,7 @@ pub async fn verify_code(
     // Mark verification as verified
     state
         .db
-        .mark_verification_as_verified(&req.verification_id)
+        .mark_verification_as_verified(req.verification_id)
         .await?;
 
     // Send admin welcome email
@@ -727,7 +727,7 @@ pub async fn verify_code(
             &game.organizer_email,
             &game.name,
             &game.event_date,
-            &game.id,
+            game.id,
             &game.admin_token,
         )
         .await
@@ -756,7 +756,7 @@ pub async fn resend_verification(
     // Get verification
     let verification = state
         .db
-        .get_email_verification_by_id(&req.verification_id)
+        .get_email_verification_by_id(req.verification_id)
         .await?
         .ok_or(AppError::NotFound("Verificação não encontrada".to_string()))?;
 
@@ -778,7 +778,9 @@ pub async fn resend_verification(
     if recent_count >= 3 {
         return Ok(Json(ResendVerificationResponse {
             success: false,
-            error: Some("Muitas tentativas de verificação. Tente novamente em 1 hora.".to_string()),
+            error: Some(
+                "Muitas tentativas de verificação. Tente novamente em 1 hora.".to_string(),
+            ),
         }));
     }
 
@@ -793,7 +795,7 @@ pub async fn resend_verification(
     // Update verification with new code
     state
         .db
-        .update_verification_code(&req.verification_id, &new_code, new_expires_at)
+        .update_verification_code(req.verification_id, &new_code, new_expires_at)
         .await?;
 
     // Send new verification email

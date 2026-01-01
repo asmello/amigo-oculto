@@ -1,13 +1,13 @@
+use crate::email_templates::{html, plain};
+use crate::token::{AdminToken, GameId, ViewToken};
 use anyhow::Result;
 use lettre::{
-    AsyncSmtpTransport, AsyncTransport, Tokio1Executor,
-    message::{Mailbox, Message, header::ContentType},
+    message::{header::ContentType, Mailbox, Message},
     transport::smtp::authentication::Credentials,
+    AsyncSmtpTransport, AsyncTransport, Tokio1Executor,
 };
 use std::sync::Arc;
 use url::Url;
-use crate::email_templates::{html, plain};
-use crate::token::SecureToken;
 
 type SmtpTransport = AsyncSmtpTransport<Tokio1Executor>;
 
@@ -22,14 +22,15 @@ pub struct EmailConfig {
 
 impl EmailConfig {
     pub fn from_env() -> Result<Self> {
-Ok(Self {
-        smtp_host: std::env::var("SMTP_HOST")?,
-        smtp_port: std::env::var("SMTP_PORT")?.parse()?,
-        smtp_username: std::env::var("SMTP_USERNAME")?,
-        smtp_password: std::env::var("SMTP_PASSWORD")?,
-        from_address: std::env::var("SMTP_FROM")?,
-        base_url: std::env::var("BASE_URL")?.parse()?,
-    }    )}
+        Ok(Self {
+            smtp_host: std::env::var("SMTP_HOST")?,
+            smtp_port: std::env::var("SMTP_PORT")?.parse()?,
+            smtp_username: std::env::var("SMTP_USERNAME")?,
+            smtp_password: std::env::var("SMTP_PASSWORD")?,
+            from_address: std::env::var("SMTP_FROM")?,
+            base_url: std::env::var("BASE_URL")?.parse()?,
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -48,16 +49,16 @@ impl EmailService {
         let config = EmailConfig::from_env()?;
         Self::new(config)
     }
-    
+
     pub fn new(config: EmailConfig) -> Result<Self> {
         let creds = Credentials::new(config.smtp_username, config.smtp_password);
 
-        let mailer =  
+        let mailer =
             // Port 587 requires STARTTLS (upgrade from plain to TLS)
             SmtpTransport::starttls_relay(&config.smtp_host)?
                 .port(config.smtp_port)
                 .credentials(creds)
-                .build() ;
+                .build();
 
         let email_address = config.from_address.parse()?;
         let from_address = Mailbox::new(Some("Amigo Oculto".to_string()), email_address);
@@ -74,19 +75,18 @@ impl EmailService {
 
     pub async fn test(&self) -> Result<()> {
         tracing::info!("Testing SMTP connection...");
-        self.inner.mailer.test_connection().await
-            .map_err(|e| {
-                tracing::error!("SMTP connection test failed: {}", e);
-                anyhow::anyhow!("Failed to connect to SMTP server: {}. Please verify your SMTP settings (host, port, username, password) and network connectivity.", e)
-            })?;
+        self.inner.mailer.test_connection().await.map_err(|e| {
+            tracing::error!("SMTP connection test failed: {}", e);
+            anyhow::anyhow!("Failed to connect to SMTP server: {}. Please verify your SMTP settings (host, port, username, password) and network connectivity.", e)
+        })?;
         tracing::info!("✓ SMTP connection test successful!");
         Ok(())
     }
 
-    fn reveal_url(&self, view_token: &str) -> Url {
+    fn reveal_url(&self, view_token: &ViewToken) -> Url {
         self.inner
             .base_url
-            .join(&format!("revelar/{view_token}"))
+            .join(&format!("revelar/{}", view_token))
             .unwrap()
     }
 
@@ -96,25 +96,18 @@ impl EmailService {
         participant_email: &str,
         game_name: &str,
         event_date: &str,
-        view_token: &SecureToken,
+        view_token: &ViewToken,
     ) -> Result<()> {
-        let reveal_url = self.reveal_url(view_token.as_str());
+        let reveal_url = self.reveal_url(view_token);
 
         // Generate HTML using Maud template (XSS-safe)
-        let html_body = html::participant_email(
-            participant_name,
-            game_name,
-            event_date,
-            &reveal_url,
-        ).into_string();
+        let html_body =
+            html::participant_email(participant_name, game_name, event_date, &reveal_url)
+                .into_string();
 
         // Generate plain-text
-        let plain_body = plain::participant_email(
-            participant_name,
-            game_name,
-            event_date,
-            &reveal_url,
-        );
+        let plain_body =
+            plain::participant_email(participant_name, game_name, event_date, &reveal_url);
 
         let email = Message::builder()
             .from(self.inner.from_address.clone())
@@ -138,11 +131,14 @@ impl EmailService {
         Ok(())
     }
 
-    fn admin_url(&self, game_id: &str, admin_token: &str) -> Url {
+    fn admin_url(&self, game_id: GameId, admin_token: &AdminToken) -> Url {
         let mut url = self.inner.base_url.clone();
-        url.path_segments_mut().unwrap().push("jogo").push(game_id);
+        url.path_segments_mut()
+            .unwrap()
+            .push("jogo")
+            .push(&game_id.to_string());
         url.query_pairs_mut()
-            .append_pair("admin_token", admin_token);
+            .append_pair("admin_token", admin_token.as_str());
         url
     }
 
@@ -151,27 +147,20 @@ impl EmailService {
         organizer_email: &str,
         game_name: &str,
         event_date: &str,
-        game_id: &str,
-        admin_token: &SecureToken,
+        game_id: GameId,
+        admin_token: &AdminToken,
         participant_count: usize,
     ) -> Result<()> {
-        let admin_url = self.admin_url(game_id, admin_token.as_str());
+        let admin_url = self.admin_url(game_id, admin_token);
 
         // Generate HTML using Maud template (XSS-safe)
-        let html_body = html::organizer_email(
-            game_name,
-            event_date,
-            participant_count,
-            &admin_url,
-        ).into_string();
+        let html_body =
+            html::organizer_email(game_name, event_date, participant_count, &admin_url)
+                .into_string();
 
         // Generate plain-text
-        let plain_body = plain::organizer_email(
-            game_name,
-            event_date,
-            participant_count,
-            &admin_url,
-        );
+        let plain_body =
+            plain::organizer_email(game_name, event_date, participant_count, &admin_url);
 
         let email = Message::builder()
             .from(self.inner.from_address.clone())
@@ -202,16 +191,10 @@ impl EmailService {
         verification_code: &str,
     ) -> Result<()> {
         // Generate HTML using Maud template (XSS-safe)
-        let html_body = html::verification_email(
-            game_name,
-            verification_code,
-        ).into_string();
+        let html_body = html::verification_email(game_name, verification_code).into_string();
 
         // Generate plain-text
-        let plain_body = plain::verification_email(
-            game_name,
-            verification_code,
-        );
+        let plain_body = plain::verification_email(game_name, verification_code);
 
         let email = Message::builder()
             .from(self.inner.from_address.clone())
@@ -240,24 +223,16 @@ impl EmailService {
         organizer_email: &str,
         game_name: &str,
         event_date: &str,
-        game_id: &str,
-        admin_token: &SecureToken,
+        game_id: GameId,
+        admin_token: &AdminToken,
     ) -> Result<()> {
-        let admin_url = self.admin_url(game_id, admin_token.as_str());
+        let admin_url = self.admin_url(game_id, admin_token);
 
         // Generate HTML using Maud template (XSS-safe)
-        let html_body = html::admin_welcome_email(
-            game_name,
-            event_date,
-            &admin_url,
-        ).into_string();
+        let html_body = html::admin_welcome_email(game_name, event_date, &admin_url).into_string();
 
         // Generate plain-text
-        let plain_body = plain::admin_welcome_email(
-            game_name,
-            event_date,
-            &admin_url,
-        );
+        let plain_body = plain::admin_welcome_email(game_name, event_date, &admin_url);
 
         let email = Message::builder()
             .from(self.inner.from_address.clone())
