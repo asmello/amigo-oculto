@@ -752,7 +752,7 @@ impl Transaction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::Game;
+    use crate::models::{Game, Participant};
     use chrono::NaiveDate;
 
     /// Create an in-memory database for testing.
@@ -880,5 +880,39 @@ mod tests {
         // Verify old game was deleted
         let found = db.get_game_by_id(old_game.id).await.unwrap();
         assert!(found.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_old_games_with_related_records() {
+        let db = setup_test_db().await;
+
+        // Create an expired game
+        let old_date = Utc::now().date_naive() - Duration::days(100);
+        let game = create_test_game("old_game", old_date);
+        db.create_game(&game).await.unwrap();
+
+        // Add participants
+        let participant1 = Participant::new(game.id, "Alice".to_string(), "alice@test.com".to_string());
+        let participant2 = Participant::new(game.id, "Bob".to_string(), "bob@test.com".to_string());
+        db.add_participant(&participant1).await.unwrap();
+        db.add_participant(&participant2).await.unwrap();
+
+        // Record email resends (references both game and participants)
+        db.record_email_resend(game.id, None, "admin_link").await.unwrap();
+        db.record_email_resend(game.id, Some(participant1.id), "participant_reveal").await.unwrap();
+
+        // Verify records exist
+        assert!(db.get_game_by_id(game.id).await.unwrap().is_some());
+        let participants = db.get_participants_by_game(game.id).await.unwrap();
+        assert_eq!(participants.len(), 2);
+
+        // Run cleanup - this should not fail with foreign key errors
+        let deleted = db.cleanup_old_games().await.unwrap();
+        assert_eq!(deleted, 1);
+
+        // Verify game and all related records are deleted
+        assert!(db.get_game_by_id(game.id).await.unwrap().is_none());
+        let participants = db.get_participants_by_game(game.id).await.unwrap();
+        assert!(participants.is_empty());
     }
 }
