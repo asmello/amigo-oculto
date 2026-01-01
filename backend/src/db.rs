@@ -18,7 +18,9 @@ pub struct Database {
 }
 
 async fn init_db(database_url: &str) -> Result<SqlitePool> {
-    let options = SqliteConnectOptions::from_str(database_url)?.create_if_missing(true);
+    let options = SqliteConnectOptions::from_str(database_url)?
+        .create_if_missing(true)
+        .foreign_keys(true);
     let pool = SqlitePool::connect_with(options).await?;
 
     sqlx::raw_sql(
@@ -494,10 +496,32 @@ impl Database {
     }
 
     /// Delete games where event_date is more than GAME_RETENTION_DAYS in the past.
-    /// Returns the number of games deleted. Participants and email_resends are
-    /// automatically deleted via CASCADE foreign key constraints.
+    /// Returns the number of games deleted.
     pub async fn cleanup_old_games(&self) -> Result<u64> {
         let cutoff = Utc::now().date_naive() - Duration::days(GAME_RETENTION_DAYS.into());
+
+        // Delete related records first to handle databases created before CASCADE was added.
+        // Order: email_resends (references participants) → participants → games
+        sqlx::query(
+            r#"
+            DELETE FROM email_resends
+            WHERE game_id IN (SELECT id FROM games WHERE event_date < ?)
+            "#,
+        )
+        .bind(cutoff)
+        .execute(&self.pool)
+        .await?;
+
+        sqlx::query(
+            r#"
+            DELETE FROM participants
+            WHERE game_id IN (SELECT id FROM games WHERE event_date < ?)
+            "#,
+        )
+        .bind(cutoff)
+        .execute(&self.pool)
+        .await?;
+
         let result = sqlx::query(
             r#"
             DELETE FROM games
