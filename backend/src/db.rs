@@ -109,10 +109,10 @@ impl Database {
         )
         .bind(game.id)
         .bind(&game.name)
-        .bind(&game.event_date)
+        .bind(game.event_date)
         .bind(&game.organizer_email)
         .bind(&game.admin_token)
-        .bind(game.created_at.to_rfc3339())
+        .bind(game.created_at)
         .bind(game.drawn)
         .execute(&self.pool)
         .await?;
@@ -138,7 +138,7 @@ impl Database {
             event_date: r.get("event_date"),
             organizer_email: r.get("organizer_email"),
             admin_token: r.get("admin_token"),
-            created_at: r.get::<String, _>("created_at").parse().unwrap(),
+            created_at: r.get("created_at"),
             drawn: r.get::<i32, _>("drawn") != 0,
         }))
     }
@@ -161,7 +161,7 @@ impl Database {
             event_date: r.get("event_date"),
             organizer_email: r.get("organizer_email"),
             admin_token: r.get("admin_token"),
-            created_at: r.get::<String, _>("created_at").parse().unwrap(),
+            created_at: r.get("created_at"),
             drawn: r.get::<i32, _>("drawn") != 0,
         }))
     }
@@ -189,7 +189,7 @@ impl Database {
         .bind(participant.matched_with_id)
         .bind(&participant.view_token)
         .bind(participant.has_viewed)
-        .bind(participant.created_at.to_rfc3339())
+        .bind(participant.created_at)
         .execute(&self.pool)
         .await?;
 
@@ -219,7 +219,7 @@ impl Database {
                 matched_with_id: r.get("matched_with_id"),
                 view_token: r.get("view_token"),
                 has_viewed: r.get::<i32, _>("has_viewed") != 0,
-                created_at: r.get::<String, _>("created_at").parse().unwrap(),
+                created_at: r.get("created_at"),
             })
             .collect())
     }
@@ -247,7 +247,7 @@ impl Database {
             matched_with_id: r.get("matched_with_id"),
             view_token: r.get("view_token"),
             has_viewed: r.get::<i32, _>("has_viewed") != 0,
-            created_at: r.get::<String, _>("created_at").parse().unwrap(),
+            created_at: r.get("created_at"),
         }))
     }
 
@@ -289,7 +289,7 @@ impl Database {
             matched_with_id: r.get("matched_with_id"),
             view_token: r.get("view_token"),
             has_viewed: r.get::<i32, _>("has_viewed") != 0,
-            created_at: r.get::<String, _>("created_at").parse().unwrap(),
+            created_at: r.get("created_at"),
         }))
     }
 
@@ -358,9 +358,9 @@ impl Database {
         .bind(&verification.email)
         .bind(&verification.code)
         .bind(&verification.game_name)
-        .bind(&verification.event_date)
-        .bind(verification.created_at.to_rfc3339())
-        .bind(verification.expires_at.to_rfc3339())
+        .bind(verification.event_date)
+        .bind(verification.created_at)
+        .bind(verification.expires_at)
         .bind(verification.verified)
         .bind(verification.attempts)
         .execute(&self.pool)
@@ -390,8 +390,8 @@ impl Database {
             code: r.get("code"),
             game_name: r.get("game_name"),
             event_date: r.get("event_date"),
-            created_at: r.get::<String, _>("created_at").parse().unwrap(),
-            expires_at: r.get::<String, _>("expires_at").parse().unwrap(),
+            created_at: r.get("created_at"),
+            expires_at: r.get("expires_at"),
             verified: r.get::<i32, _>("verified") != 0,
             attempts: r.get("attempts"),
         }))
@@ -446,7 +446,7 @@ impl Database {
         "#,
         )
         .bind(email)
-        .bind(since.to_rfc3339())
+        .bind(since)
         .fetch_one(&self.pool)
         .await?;
 
@@ -467,7 +467,7 @@ impl Database {
             "#,
         )
         .bind(new_code)
-        .bind(new_expires_at.to_rfc3339())
+        .bind(new_expires_at)
         .bind(verification_id)
         .execute(&self.pool)
         .await?;
@@ -483,7 +483,7 @@ impl Database {
             WHERE expires_at < ? AND verified = 0
             "#,
         )
-        .bind(now.to_rfc3339())
+        .bind(now)
         .execute(&self.pool)
         .await?;
 
@@ -510,7 +510,7 @@ impl Database {
         .bind(game_id)
         .bind(participant_id)
         .bind(resend_type)
-        .bind(now.to_rfc3339())
+        .bind(now)
         .execute(&self.pool)
         .await?;
 
@@ -530,7 +530,7 @@ impl Database {
             "#,
         )
         .bind(participant_id)
-        .bind(since.to_rfc3339())
+        .bind(since)
         .fetch_one(&self.pool)
         .await?;
 
@@ -565,7 +565,7 @@ impl Database {
             "#,
         )
         .bind(game_id)
-        .bind(since.to_rfc3339())
+        .bind(since)
         .fetch_one(&self.pool)
         .await?;
 
@@ -634,7 +634,7 @@ impl Transaction {
             event_date: r.get("event_date"),
             organizer_email: r.get("organizer_email"),
             admin_token: r.get("admin_token"),
-            created_at: r.get::<String, _>("created_at").parse().unwrap(),
+            created_at: r.get("created_at"),
             drawn: r.get::<i32, _>("drawn") != 0,
         }))
     }
@@ -662,7 +662,7 @@ impl Transaction {
                 matched_with_id: r.get("matched_with_id"),
                 view_token: r.get("view_token"),
                 has_viewed: r.get::<i32, _>("has_viewed") != 0,
-                created_at: r.get::<String, _>("created_at").parse().unwrap(),
+                created_at: r.get("created_at"),
             })
             .collect())
     }

@@ -188,7 +188,7 @@ pub async fn draw_game(
                 &participant.name,
                 &participant.email,
                 &game.name,
-                &game.event_date,
+                game.event_date,
                 &participant.view_token,
             )
             .await
@@ -203,7 +203,7 @@ pub async fn draw_game(
         .send_organizer_confirmation(
             &game.organizer_email,
             &game.name,
-            &game.event_date,
+            game.event_date,
             game.id,
             &game.admin_token,
             participants.len(),
@@ -324,7 +324,7 @@ pub async fn resend_all_emails(
                 &participant.name,
                 &participant.email,
                 &game.name,
-                &game.event_date,
+                game.event_date,
                 &participant.view_token,
             )
             .await
@@ -480,7 +480,7 @@ pub async fn resend_participant_email(
             &participant.name,
             &participant.email,
             &game.name,
-            &game.event_date,
+            game.event_date,
             &participant.view_token,
         )
         .await?;
@@ -609,7 +609,7 @@ pub async fn request_verification(
     let verification = EmailVerification::new(
         req.organizer_email.clone(),
         req.name.clone(),
-        req.event_date.clone(),
+        req.event_date,
     );
 
     // Store in database
@@ -708,7 +708,7 @@ pub async fn verify_code(
     // Code is correct! Create the game
     let game = Game::new(
         verification.game_name.clone(),
-        verification.event_date.clone(),
+        verification.event_date,
         verification.email.clone(),
     );
 
@@ -726,7 +726,7 @@ pub async fn verify_code(
         .send_admin_welcome(
             &game.organizer_email,
             &game.name,
-            &game.event_date,
+            game.event_date,
             game.id,
             &game.admin_token,
         )

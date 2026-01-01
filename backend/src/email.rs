@@ -1,6 +1,7 @@
 use crate::email_templates::{html, plain};
 use crate::token::{AdminToken, GameId, ViewToken};
 use anyhow::Result;
+use chrono::{Locale, NaiveDate};
 use lettre::{
     message::{header::ContentType, Mailbox, Message},
     transport::smtp::authentication::Credentials,
@@ -95,19 +96,20 @@ impl EmailService {
         participant_name: &str,
         participant_email: &str,
         game_name: &str,
-        event_date: &str,
+        event_date: NaiveDate,
         view_token: &ViewToken,
     ) -> Result<()> {
         let reveal_url = self.reveal_url(view_token);
+        let formatted_date = format_brazilian_date(event_date);
 
         // Generate HTML using Maud template (XSS-safe)
         let html_body =
-            html::participant_email(participant_name, game_name, event_date, &reveal_url)
+            html::participant_email(participant_name, game_name, &formatted_date, &reveal_url)
                 .into_string();
 
         // Generate plain-text
         let plain_body =
-            plain::participant_email(participant_name, game_name, event_date, &reveal_url);
+            plain::participant_email(participant_name, game_name, &formatted_date, &reveal_url);
 
         let email = Message::builder()
             .from(self.inner.from_address.clone())
@@ -146,21 +148,22 @@ impl EmailService {
         &self,
         organizer_email: &str,
         game_name: &str,
-        event_date: &str,
+        event_date: NaiveDate,
         game_id: GameId,
         admin_token: &AdminToken,
         participant_count: usize,
     ) -> Result<()> {
         let admin_url = self.admin_url(game_id, admin_token);
+        let formatted_date = format_brazilian_date(event_date);
 
         // Generate HTML using Maud template (XSS-safe)
         let html_body =
-            html::organizer_email(game_name, event_date, participant_count, &admin_url)
+            html::organizer_email(game_name, &formatted_date, participant_count, &admin_url)
                 .into_string();
 
         // Generate plain-text
         let plain_body =
-            plain::organizer_email(game_name, event_date, participant_count, &admin_url);
+            plain::organizer_email(game_name, &formatted_date, participant_count, &admin_url);
 
         let email = Message::builder()
             .from(self.inner.from_address.clone())
@@ -222,17 +225,18 @@ impl EmailService {
         &self,
         organizer_email: &str,
         game_name: &str,
-        event_date: &str,
+        event_date: NaiveDate,
         game_id: GameId,
         admin_token: &AdminToken,
     ) -> Result<()> {
         let admin_url = self.admin_url(game_id, admin_token);
+        let formatted_date = format_brazilian_date(event_date);
 
         // Generate HTML using Maud template (XSS-safe)
-        let html_body = html::admin_welcome_email(game_name, event_date, &admin_url).into_string();
+        let html_body = html::admin_welcome_email(game_name, &formatted_date, &admin_url).into_string();
 
         // Generate plain-text
-        let plain_body = plain::admin_welcome_email(game_name, event_date, &admin_url);
+        let plain_body = plain::admin_welcome_email(game_name, &formatted_date, &admin_url);
 
         let email = Message::builder()
             .from(self.inner.from_address.clone())
@@ -255,4 +259,10 @@ impl EmailService {
         self.inner.mailer.send(email).await?;
         Ok(())
     }
+}
+
+/// Formats a date in Brazilian Portuguese format (e.g., "25 de dezembro de 2024")
+fn format_brazilian_date(date: NaiveDate) -> String {
+    date.format_localized("%e de %B de %Y", Locale::pt_BR)
+        .to_string()
 }

@@ -80,7 +80,7 @@
 				},
 				body: JSON.stringify({
 					name,
-					event_date: formatBrazilianDate(eventDate),
+					event_date: eventDate,
 					organizer_email: organizerEmail
 				})
 			});

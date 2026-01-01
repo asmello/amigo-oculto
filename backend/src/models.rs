@@ -1,5 +1,5 @@
 use crate::token::{AdminToken, GameId, ParticipantId, VerificationId, ViewToken};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -8,7 +8,7 @@ pub struct EmailVerification {
     pub email: String,
     pub code: String,
     pub game_name: String,
-    pub event_date: String,
+    pub event_date: NaiveDate,
     pub created_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub verified: bool,
@@ -16,7 +16,7 @@ pub struct EmailVerification {
 }
 
 impl EmailVerification {
-    pub fn new(email: String, game_name: String, event_date: String) -> Self {
+    pub fn new(email: String, game_name: String, event_date: NaiveDate) -> Self {
         use rand::Rng;
         let mut rng = rand::thread_rng();
         let code = format!("{:06}", rng.gen_range(0..1000000));
@@ -49,7 +49,7 @@ impl EmailVerification {
 pub struct Game {
     pub id: GameId,
     pub name: String,
-    pub event_date: String,
+    pub event_date: NaiveDate,
     pub organizer_email: String,
     pub admin_token: AdminToken,
     pub created_at: DateTime<Utc>,
@@ -71,7 +71,7 @@ pub struct Participant {
 #[derive(Debug, Deserialize)]
 pub struct CreateGameRequest {
     pub name: String,
-    pub event_date: String,
+    pub event_date: NaiveDate,
     pub organizer_email: String,
 }
 
@@ -115,7 +115,7 @@ pub struct ParticipantStatus {
 #[derive(Debug, Serialize)]
 pub struct RevealResponse {
     pub game_name: String,
-    pub event_date: String,
+    pub event_date: NaiveDate,
     pub your_name: String,
     pub matched_name: String,
 }
@@ -123,7 +123,7 @@ pub struct RevealResponse {
 #[derive(Debug, Deserialize)]
 pub struct RequestVerificationRequest {
     pub name: String,
-    pub event_date: String,
+    pub event_date: NaiveDate,
     pub organizer_email: String,
 }
 
@@ -164,7 +164,7 @@ pub struct ResendVerificationResponse {
 }
 
 impl Game {
-    pub fn new(name: String, event_date: String, organizer_email: String) -> Self {
+    pub fn new(name: String, event_date: NaiveDate, organizer_email: String) -> Self {
         Self {
             id: GameId::new(),
             name,
