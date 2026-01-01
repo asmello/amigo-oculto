@@ -17,8 +17,7 @@ async fn init_db(database_url: &str) -> Result<SqlitePool> {
     let options = SqliteConnectOptions::from_str(database_url)?.create_if_missing(true);
     let pool = SqlitePool::connect_with(options).await?;
 
-    // Create tables
-    sqlx::query(
+    sqlx::raw_sql(
         r#"
         CREATE TABLE IF NOT EXISTS games (
             id TEXT PRIMARY KEY,
@@ -28,14 +27,8 @@ async fn init_db(database_url: &str) -> Result<SqlitePool> {
             admin_token TEXT NOT NULL UNIQUE,
             created_at TEXT NOT NULL,
             drawn INTEGER NOT NULL DEFAULT 0
-        )
-        "#,
-    )
-    .execute(&pool)
-    .await?;
+        );
 
-    sqlx::query(
-        r#"
         CREATE TABLE IF NOT EXISTS participants (
             id TEXT PRIMARY KEY,
             game_id TEXT NOT NULL,
@@ -46,14 +39,8 @@ async fn init_db(database_url: &str) -> Result<SqlitePool> {
             has_viewed INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
             FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
-        )
-        "#,
-    )
-    .execute(&pool)
-    .await?;
+        );
 
-    sqlx::query(
-        r#"
         CREATE TABLE IF NOT EXISTS email_verifications (
             id TEXT PRIMARY KEY,
             email TEXT NOT NULL,
@@ -64,32 +51,11 @@ async fn init_db(database_url: &str) -> Result<SqlitePool> {
             expires_at TEXT NOT NULL,
             verified INTEGER NOT NULL DEFAULT 0,
             attempts INTEGER NOT NULL DEFAULT 0
-        )
-        "#,
-    )
-    .execute(&pool)
-    .await?;
+        );
 
-    // Create indices for email_verifications
-    sqlx::query(
-        r#"
-        CREATE INDEX IF NOT EXISTS idx_email_verifications_email ON email_verifications(email)
-        "#,
-    )
-    .execute(&pool)
-    .await?;
+        CREATE INDEX IF NOT EXISTS idx_email_verifications_email ON email_verifications(email);
+        CREATE INDEX IF NOT EXISTS idx_email_verifications_code ON email_verifications(code);
 
-    sqlx::query(
-        r#"
-        CREATE INDEX IF NOT EXISTS idx_email_verifications_code ON email_verifications(code)
-        "#,
-    )
-    .execute(&pool)
-    .await?;
-
-    // Email resends tracking table for rate limiting
-    sqlx::query(
-        r#"
         CREATE TABLE IF NOT EXISTS email_resends (
             id TEXT PRIMARY KEY,
             game_id TEXT NOT NULL,
@@ -98,24 +64,10 @@ async fn init_db(database_url: &str) -> Result<SqlitePool> {
             resent_at TEXT NOT NULL,
             FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
             FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE
-        )
-        "#,
-    )
-    .execute(&pool)
-    .await?;
+        );
 
-    // Create indices for email_resends
-    sqlx::query(
-        r#"
-        CREATE INDEX IF NOT EXISTS idx_email_resends_game_id ON email_resends(game_id)
-        "#,
-    )
-    .execute(&pool)
-    .await?;
-
-    sqlx::query(
-        r#"
-        CREATE INDEX IF NOT EXISTS idx_email_resends_participant_id ON email_resends(participant_id)
+        CREATE INDEX IF NOT EXISTS idx_email_resends_game_id ON email_resends(game_id);
+        CREATE INDEX IF NOT EXISTS idx_email_resends_participant_id ON email_resends(participant_id);
         "#,
     )
     .execute(&pool)
