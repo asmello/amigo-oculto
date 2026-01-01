@@ -1,13 +1,16 @@
 use crate::models::{EmailVerification, Game, Participant};
 use crate::token::{AdminToken, GameId, ParticipantId, VerificationId, ViewToken};
 use anyhow::{Context, Result};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqlitePool},
     Row, Sqlite,
 };
 use std::str::FromStr;
 use ulid::Ulid;
+
+/// Number of days after event_date before a game is eligible for cleanup.
+pub const GAME_RETENTION_DAYS: u32 = 90;
 
 #[derive(Clone)]
 pub struct Database {
@@ -490,6 +493,24 @@ impl Database {
         Ok(result.rows_affected())
     }
 
+    /// Delete games where event_date is more than GAME_RETENTION_DAYS in the past.
+    /// Returns the number of games deleted. Participants and email_resends are
+    /// automatically deleted via CASCADE foreign key constraints.
+    pub async fn cleanup_old_games(&self) -> Result<u64> {
+        let cutoff = Utc::now().date_naive() - Duration::days(GAME_RETENTION_DAYS.into());
+        let result = sqlx::query(
+            r#"
+            DELETE FROM games
+            WHERE event_date < ?
+            "#,
+        )
+        .bind(cutoff)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected())
+    }
+
     // Email resend tracking functions
     pub async fn record_email_resend(
         &self,
@@ -701,5 +722,139 @@ impl Transaction {
         .await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::Game;
+    use chrono::NaiveDate;
+
+    /// Create an in-memory database for testing.
+    async fn setup_test_db() -> Database {
+        let pool = init_db(":memory:").await.unwrap();
+        Database { pool }
+    }
+
+    /// Create a test game with a specific event_date.
+    fn create_test_game(name: &str, event_date: NaiveDate) -> Game {
+        Game {
+            id: GameId::new(),
+            name: name.to_string(),
+            event_date,
+            organizer_email: format!("{}@test.com", name),
+            admin_token: crate::token::AdminToken::generate(),
+            created_at: Utc::now(),
+            drawn: false,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_old_games_deletes_expired() {
+        let db = setup_test_db().await;
+
+        // Create a game with event_date > 90 days ago
+        let old_date = Utc::now().date_naive() - Duration::days(100);
+        let old_game = create_test_game("old_game", old_date);
+        db.create_game(&old_game).await.unwrap();
+
+        // Verify game exists
+        let found = db.get_game_by_id(old_game.id).await.unwrap();
+        assert!(found.is_some());
+
+        // Run cleanup
+        let deleted = db.cleanup_old_games().await.unwrap();
+        assert_eq!(deleted, 1);
+
+        // Verify game was deleted
+        let found = db.get_game_by_id(old_game.id).await.unwrap();
+        assert!(found.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_old_games_preserves_recent() {
+        let db = setup_test_db().await;
+
+        // Create a game with event_date within retention period
+        let recent_date = Utc::now().date_naive() - Duration::days(30);
+        let recent_game = create_test_game("recent_game", recent_date);
+        db.create_game(&recent_game).await.unwrap();
+
+        // Run cleanup
+        let deleted = db.cleanup_old_games().await.unwrap();
+        assert_eq!(deleted, 0);
+
+        // Verify game still exists
+        let found = db.get_game_by_id(recent_game.id).await.unwrap();
+        assert!(found.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_old_games_preserves_future() {
+        let db = setup_test_db().await;
+
+        // Create a game with event_date in the future
+        let future_date = Utc::now().date_naive() + Duration::days(30);
+        let future_game = create_test_game("future_game", future_date);
+        db.create_game(&future_game).await.unwrap();
+
+        // Run cleanup
+        let deleted = db.cleanup_old_games().await.unwrap();
+        assert_eq!(deleted, 0);
+
+        // Verify game still exists
+        let found = db.get_game_by_id(future_game.id).await.unwrap();
+        assert!(found.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_old_games_returns_correct_count() {
+        let db = setup_test_db().await;
+
+        // Create 3 expired games
+        for i in 0..3 {
+            let old_date = Utc::now().date_naive() - Duration::days(100 + i);
+            let game = create_test_game(&format!("old_{}", i), old_date);
+            db.create_game(&game).await.unwrap();
+        }
+
+        // Create 2 recent games
+        for i in 0..2 {
+            let recent_date = Utc::now().date_naive() - Duration::days(10 + i);
+            let game = create_test_game(&format!("recent_{}", i), recent_date);
+            db.create_game(&game).await.unwrap();
+        }
+
+        // Run cleanup
+        let deleted = db.cleanup_old_games().await.unwrap();
+        assert_eq!(deleted, 3);
+    }
+
+    #[tokio::test]
+    async fn test_cleanup_old_games_boundary() {
+        let db = setup_test_db().await;
+
+        // Create a game exactly at the boundary (should NOT be deleted)
+        let boundary_date = Utc::now().date_naive() - Duration::days(GAME_RETENTION_DAYS.into());
+        let boundary_game = create_test_game("boundary_game", boundary_date);
+        db.create_game(&boundary_game).await.unwrap();
+
+        // Create a game one day past the boundary (should be deleted)
+        let past_boundary = Utc::now().date_naive() - Duration::days(GAME_RETENTION_DAYS as i64 + 1);
+        let old_game = create_test_game("old_game", past_boundary);
+        db.create_game(&old_game).await.unwrap();
+
+        // Run cleanup
+        let deleted = db.cleanup_old_games().await.unwrap();
+        assert_eq!(deleted, 1);
+
+        // Verify boundary game still exists
+        let found = db.get_game_by_id(boundary_game.id).await.unwrap();
+        assert!(found.is_some());
+
+        // Verify old game was deleted
+        let found = db.get_game_by_id(old_game.id).await.unwrap();
+        assert!(found.is_none());
     }
 }

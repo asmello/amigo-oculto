@@ -46,6 +46,18 @@ impl Server {
                             tracing::error!("failed to cleanup expired verifications: {}", e);
                         }
                     }
+
+                    match db.cleanup_old_games().await {
+                        Ok(count) if count > 0 => {
+                            tracing::info!("cleaned up {} old game(s)", count);
+                        }
+                        Ok(_) => {
+                            tracing::debug!("no old games to clean up");
+                        }
+                        Err(e) => {
+                            tracing::error!("failed to cleanup old games: {}", e);
+                        }
+                    }
                 }
                 _ = cancel.cancelled() => {
                     tracing::debug!("cleanup task received shutdown signal");
