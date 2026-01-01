@@ -53,6 +53,10 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # 3) Copy actual source and build final binary
 COPY backend/src ./src
 
+# Touch source files to ensure they're newer than the dummy-built binary
+# (Docker COPY preserves mtimes, which can confuse cargo's incremental builds)
+RUN touch src/main.rs
+
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     cargo build --release --locked
@@ -61,6 +65,10 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # Runtime
 ############################
 FROM debian:${DEBIAN_SUITE}-slim AS runtime
+
+# Re-declare ARG to make it available in this stage (Docker ARGs have stage scope)
+ARG BIN_NAME
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

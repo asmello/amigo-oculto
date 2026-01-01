@@ -103,3 +103,16 @@ Error handling should prioritise context. We use `anyhow`, which provides the `C
 ### Panicking
 
 We adhere to the convention that panics should only happen when there's a bug in our application. At the same time, when an invariant we rely upon is violated, we should always panic rather than continue the program. A caveat is that a panic that happens when handling a request will typically be intercepted by axum, and won't cause the whole server to crash. Because of this, if any bugs would cause state corruption that persists across requests, they should trigger a graceful shutdown of the server (or immediately abort, depending on severity).
+
+## Tool preferences
+
+### Git
+
+Prefer the Git MCP server tools (`mcp__git__*`) for common operations like `git_status`, `git_log`, `git_show`, `git_diff`, `git_add`, `git_commit`, etc.
+
+Use direct `git` commands via Bash only when the MCP tools lack the required functionality, such as:
+- Range diffs with file filters (e.g., `git diff A..B -- path/to/file`)
+- Complex revision specifications (e.g., `HEAD~3`, `branch1...branch2`)
+- Commands not exposed by the MCP server (e.g., `git stash`, `git rebase`, `git cherry-pick`)
+
+When falling back to direct git commands, briefly explain why the MCP tool was insufficient.
