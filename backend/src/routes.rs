@@ -3,18 +3,18 @@ use crate::{
     email::EmailService,
     matching,
     models::*,
-    site_admin_auth,
+    site_admin_auth::{self, AuthenticatedAdmin},
     staging_auth::StagingAuthLayer,
     token::{AdminToken, GameId, ParticipantId, ViewToken},
 };
 use anyhow::Context;
 use axum::{
+    Json, Router,
     extract::{Path, Query, State},
     http::StatusCode,
     middleware,
     response::IntoResponse,
     routing::{get, get_service, patch, post},
-    Json, Router,
 };
 use chrono::{Duration, Utc};
 use serde::Deserialize;
@@ -33,6 +33,7 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
 
     // Site admin protected routes (require authentication)
     let site_admin_protected = Router::new()
+        .route("/logout", post(site_admin_logout))
         .route("/change-password", post(site_admin_change_password))
         .route("/games", get(site_admin_search_games))
         .route(
@@ -576,11 +577,9 @@ pub async fn reveal_match(
     }
 
     // Get matched participant
-    let matched_with_id = participant
-        .matched_with_id
-        .ok_or(AppError::InternalError(
-            "Sorteio ainda não foi realizado".to_string(),
-        ))?;
+    let matched_with_id = participant.matched_with_id.ok_or(AppError::InternalError(
+        "Sorteio ainda não foi realizado".to_string(),
+    ))?;
 
     let matched_participant = state
         .db
@@ -799,9 +798,7 @@ pub async fn resend_verification(
     if recent_count >= 3 {
         return Ok(Json(ResendVerificationResponse {
             success: false,
-            error: Some(
-                "Muitas tentativas de verificação. Tente novamente em 1 hora.".to_string(),
-            ),
+            error: Some("Muitas tentativas de verificação. Tente novamente em 1 hora.".to_string()),
         }));
     }
 
@@ -846,16 +843,11 @@ pub async fn site_admin_login(
     Json(req): Json<SiteAdminLoginRequest>,
 ) -> Result<Json<SiteAdminLoginResponse>, AppError> {
     // Verify password
-    let valid = state
-        .db
-        .verify_site_admin_password(&req.password)
-        .await?;
+    let valid = state.db.verify_site_admin_password(&req.password).await?;
 
     if !valid {
         tracing::warn!("failed site admin login attempt");
-        return Err(AppError::Unauthorized(
-            "Senha incorreta".to_string(),
-        ));
+        return Err(AppError::Unauthorized("Senha incorreta".to_string()));
     }
 
     // Create session
@@ -870,6 +862,21 @@ pub async fn site_admin_login(
     }))
 }
 
+/// POST /api/site-admin/logout - Invalidate the current session
+pub async fn site_admin_logout(
+    State(state): State<Arc<AppState>>,
+    AuthenticatedAdmin(session_token): AuthenticatedAdmin,
+) -> Result<Json<serde_json::Value>, AppError> {
+    state.db.delete_admin_session(&session_token).await?;
+
+    tracing::info!("site admin logged out");
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "Sessão encerrada com sucesso"
+    })))
+}
+
 /// POST /api/site-admin/change-password - Change the site admin password
 pub async fn site_admin_change_password(
     State(state): State<Arc<AppState>>,
@@ -877,7 +884,9 @@ pub async fn site_admin_change_password(
 ) -> Result<Json<serde_json::Value>, AppError> {
     // Validate new password
     if req.new_password.is_empty() {
-        return Err(AppError::BadRequest("Nova senha não pode ser vazia".to_string()));
+        return Err(AppError::BadRequest(
+            "Nova senha não pode ser vazia".to_string(),
+        ));
     }
 
     if req.new_password.len() < 8 {
@@ -893,9 +902,7 @@ pub async fn site_admin_change_password(
         .await?;
 
     if !success {
-        return Err(AppError::Unauthorized(
-            "Senha atual incorreta".to_string(),
-        ));
+        return Err(AppError::Unauthorized("Senha atual incorreta".to_string()));
     }
 
     Ok(Json(serde_json::json!({
@@ -911,7 +918,7 @@ pub async fn site_admin_search_games(
 ) -> Result<Json<SearchGamesResponse>, AppError> {
     // Validate pagination parameters
     let limit = query.limit.clamp(1, 100);
-    let offset = query.offset.max(0);
+    let offset = query.offset;
 
     // Search games
     let games = state
@@ -957,8 +964,8 @@ pub async fn site_admin_get_game(
         .ok_or(AppError::NotFound("Jogo não encontrado".to_string()))?;
 
     let participants = state.db.get_participants_by_game(game_id).await?;
-    let participant_count = u64::try_from(participants.len())
-        .context("converting participant count to u64")?;
+    let participant_count =
+        u64::try_from(participants.len()).context("converting participant count to u64")?;
 
     Ok(Json(GameDetailResponse {
         game,

@@ -180,7 +180,19 @@
 		}
 	}
 
-	function logout() {
+	async function logout() {
+		// Invalidate session on server (best-effort, don't block on failure)
+		try {
+			await fetch('/api/site-admin/logout', {
+				method: 'POST',
+				headers: {
+					'Authorization': `Bearer ${token}`
+				}
+			});
+		} catch {
+			// Ignore errors - we still want to clear local state
+		}
+
 		localStorage.removeItem('site_admin_token');
 		localStorage.removeItem('site_admin_expires');
 		goto('/site-admin/login');

@@ -5,12 +5,42 @@
 
 use crate::{db::Database, token::AdminSessionToken};
 use axum::{
-    extract::{Request, State},
-    http::StatusCode,
+    extract::{FromRequestParts, Request, State},
+    http::{request::Parts, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
     Json,
 };
+
+/// Extractor for the authenticated admin session token.
+///
+/// This can only be used in handlers behind the `require_site_admin` middleware,
+/// which inserts the validated token into request extensions.
+#[derive(Debug, Clone)]
+pub struct AuthenticatedAdmin(pub AdminSessionToken);
+
+impl<S> FromRequestParts<S> for AuthenticatedAdmin
+where
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, Json<serde_json::Value>);
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        parts
+            .extensions
+            .get::<AdminSessionToken>()
+            .cloned()
+            .map(AuthenticatedAdmin)
+            .ok_or_else(|| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "error": "Missing authentication context"
+                    })),
+                )
+            })
+    }
+}
 
 /// Middleware function that validates site admin authentication.
 ///
@@ -55,7 +85,9 @@ pub async fn require_site_admin(
     // Validate session
     match db.validate_admin_session(&session_token).await {
         Ok(true) => {
-            // Authentication successful, proceed with request
+            // Authentication successful, store token in extensions and proceed
+            let mut request = request;
+            request.extensions_mut().insert(session_token);
             next.run(request).await
         }
         Ok(false) => {
