@@ -246,29 +246,29 @@
 	<title>Amigo Oculto - Criar Novo Jogo</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 py-12 px-4 sm:px-6 lg:px-8">
+<div class="min-h-screen bg-cream py-12 px-4 sm:px-6 lg:px-8">
 	<div class="max-w-md mx-auto">
 		<div class="text-center mb-8">
-			<h1 class="text-5xl font-bold text-white mb-2">🎁</h1>
-			<h1 class="text-4xl font-bold text-white mb-2">Amigo Oculto</h1>
-			<p class="text-purple-200">Sistema de Sorteio Online</p>
+			<h1 class="text-5xl font-bold text-charcoal mb-2">🎁</h1>
+			<h1 class="text-4xl font-bold text-charcoal mb-2">Amigo Oculto</h1>
+			<p class="text-charcoal-700">Sistema de Sorteio Online</p>
 		</div>
 
 		<div class="bg-white rounded-lg shadow-xl p-8">
 			<!-- Progress indicator -->
 			<div class="mb-6 flex items-center justify-center space-x-4">
 				<div class="flex items-center">
-					<div class={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'request' ? 'bg-purple-600 text-white' : 'bg-green-500 text-white'}`}>
+					<div class={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'request' ? 'bg-charcoal text-white' : 'bg-sage text-charcoal-800'}`}>
 						{step === 'request' ? '1' : '✓'}
 					</div>
-					<span class="ml-2 text-sm font-medium text-gray-700">Informações</span>
+					<span class="ml-2 text-sm font-medium text-charcoal-700">Informações</span>
 				</div>
-				<div class="w-12 h-1 bg-gray-300"></div>
+				<div class="w-12 h-1 bg-sage-light"></div>
 				<div class="flex items-center">
-					<div class={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'verify' ? 'bg-purple-600 text-white' : 'bg-gray-300 text-gray-600'}`}>
+					<div class={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step === 'verify' ? 'bg-charcoal text-white' : 'bg-sage-light text-charcoal-600'}`}>
 						2
 					</div>
-					<span class="ml-2 text-sm font-medium text-gray-700">Verificação</span>
+					<span class="ml-2 text-sm font-medium text-charcoal-700">Verificação</span>
 				</div>
 			</div>
 
@@ -286,7 +286,7 @@
 							bind:value={name}
 							placeholder="Ex: Natal da Família Silva"
 							required
-							class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+							class="w-full px-4 py-2 border border-sage-light rounded-lg focus:ring-2 focus:ring-charcoal focus:border-transparent"
 						/>
 					</div>
 
@@ -300,7 +300,7 @@
 							bind:value={eventDate}
 							min={today}
 							required
-							class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+							class="w-full px-4 py-2 border border-sage-light rounded-lg focus:ring-2 focus:ring-charcoal focus:border-transparent"
 						/>
 						{#if eventDate}
 							<p class="text-sm text-gray-600 mt-1">
@@ -319,7 +319,7 @@
 							bind:value={organizerEmail}
 							placeholder="seu@email.com"
 							required
-							class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+							class="w-full px-4 py-2 border border-sage-light rounded-lg focus:ring-2 focus:ring-charcoal focus:border-transparent"
 						/>
 						<p class="text-xs text-gray-500 mt-1">
 							Você receberá um código de verificação por email
@@ -335,7 +335,7 @@
 					<button
 						type="submit"
 						disabled={loading}
-						class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+						class="w-full bg-charcoal text-white py-3 px-4 rounded-lg font-semibold hover:bg-charcoal-700 focus:outline-none focus:ring-2 focus:ring-charcoal focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
 					>
 						{loading ? 'Enviando...' : 'Enviar Código de Verificação'}
 					</button>
@@ -345,7 +345,7 @@
 					<div>
 						<button
 							on:click={goBack}
-							class="text-purple-600 hover:text-purple-700 text-sm font-medium flex items-center mb-4"
+							class="text-charcoal hover:text-charcoal-700 text-sm font-medium flex items-center mb-4"
 						>
 							← Voltar
 						</button>
@@ -370,7 +370,7 @@
 									bind:value={code[i]}
 									on:input={(e) => handleCodeInput(i, e)}
 									on:keydown={(e) => handleKeyDown(i, e)}
-									class="w-12 h-14 text-center text-2xl font-bold border-2 border-gray-300 rounded-lg focus:border-purple-600 focus:ring-2 focus:ring-purple-600 focus:outline-none"
+									class="w-12 h-14 text-center text-2xl font-bold border-2 border-sage-light rounded-lg focus:border-charcoal focus:ring-2 focus:ring-charcoal focus:outline-none"
 								/>
 							{/each}
 						</div>
@@ -390,7 +390,7 @@
 						<button
 							type="submit"
 							disabled={loading || code.join('').length !== 6}
-							class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all mb-4"
+							class="w-full bg-charcoal text-white py-3 px-4 rounded-lg font-semibold hover:bg-charcoal-700 focus:outline-none focus:ring-2 focus:ring-charcoal focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all mb-4"
 						>
 							{loading ? 'Verificando...' : 'Verificar e Criar Jogo'}
 						</button>
@@ -400,7 +400,7 @@
 								type="button"
 								on:click={resendCode}
 								disabled={resendCooldown > 0 || loading}
-								class="text-purple-600 hover:text-purple-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+								class="text-charcoal hover:text-charcoal-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{resendCooldown > 0 ? `Reenviar código (${resendCooldown}s)` : 'Não recebeu? Reenviar código'}
 							</button>
@@ -411,9 +411,9 @@
 		</div>
 
 		<div class="mt-8 text-center">
-			<div class="bg-white/10 backdrop-blur-sm rounded-lg p-6 text-white">
+			<div class="bg-white/80 backdrop-blur-sm rounded-lg p-6 text-charcoal shadow-lg">
 				<h3 class="font-semibold mb-2">Como funciona?</h3>
-				<ol class="text-sm text-left space-y-2 text-purple-100">
+				<ol class="text-sm text-left space-y-2 text-charcoal-700">
 					<li>1. Verifique seu email para criar o jogo</li>
 					<li>2. Adicione os participantes</li>
 					<li>3. Realize o sorteio automático</li>

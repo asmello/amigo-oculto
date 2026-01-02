@@ -6,12 +6,12 @@
 	<title>Política de Privacidade - Amigo Oculto</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 py-12 px-4 sm:px-6 lg:px-8">
+<div class="min-h-screen bg-cream py-12 px-4 sm:px-6 lg:px-8">
 	<div class="max-w-2xl mx-auto">
 		<div class="text-center mb-8">
 			<a href="/" class="inline-block hover:scale-105 transition-transform cursor-pointer">
-				<h1 class="text-5xl font-bold text-white mb-2">🎁</h1>
-				<h1 class="text-4xl font-bold text-white mb-2">Amigo Oculto</h1>
+				<h1 class="text-5xl font-bold text-charcoal mb-2">🎁</h1>
+				<h1 class="text-4xl font-bold text-charcoal mb-2">Amigo Oculto</h1>
 			</a>
 		</div>
 

@@ -35,11 +35,11 @@
 	<title>Seu Amigo Oculto - Amigo Oculto</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 py-12 px-4 sm:px-6 lg:px-8">
+<div class="min-h-screen bg-cream py-12 px-4 sm:px-6 lg:px-8">
 	<div class="max-w-md mx-auto">
 		<div class="text-center mb-8">
 			<a href="/" class="inline-block hover:scale-105 transition-transform cursor-pointer">
-				<h1 class="text-4xl font-bold text-white mb-2">🎁 Amigo Oculto</h1>
+				<h1 class="text-4xl font-bold text-charcoal mb-2">🎁 Amigo Oculto</h1>
 			</a>
 		</div>
 
@@ -65,11 +65,11 @@
 					<p class="text-gray-600">{revealData.game_name}</p>
 				</div>
 
-				<div class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-6 mb-6 border-2 border-purple-200">
-					<p class="text-center text-gray-700 mb-2">Olá, <span class="font-semibold">{revealData.your_name}</span>!</p>
-					<p class="text-center text-gray-700 mb-4">Você tirou:</p>
+				<div class="bg-sage-50 rounded-lg p-6 mb-6 border-2 border-sage">
+					<p class="text-center text-charcoal-700 mb-2">Olá, <span class="font-semibold">{revealData.your_name}</span>!</p>
+					<p class="text-center text-charcoal-700 mb-4">Você tirou:</p>
 					<div class="bg-white rounded-lg p-6 shadow-md">
-						<p class="text-4xl font-bold text-center text-purple-700">
+						<p class="text-4xl font-bold text-center text-charcoal">
 							{revealData.matched_name}
 						</p>
 					</div>
@@ -81,8 +81,8 @@
 					</p>
 				</div>
 
-				<div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-					<p class="text-sm text-indigo-800 text-center">
+				<div class="bg-sage-50 border border-sage-200 rounded-lg p-4">
+					<p class="text-sm text-charcoal-700 text-center">
 						<strong>🤫 Lembre-se:</strong> Mantenha o segredo! A graça do amigo oculto é a surpresa no dia da troca.
 					</p>
 				</div>
@@ -95,7 +95,7 @@
 			</div>
 
 			<div class="mt-8 text-center">
-				<div class="bg-white/10 backdrop-blur-sm rounded-lg p-4 text-white">
+				<div class="bg-white/80 backdrop-blur-sm rounded-lg p-4 text-charcoal shadow-lg">
 					<p class="text-sm">
 						💡 <strong>Dica:</strong> Pense em um presente especial que a pessoa vai adorar!
 					</p>

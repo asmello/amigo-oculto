@@ -17,7 +17,7 @@ pub fn verification_email(
             p { "Digite o código abaixo na página de criação para continuar:" }
             
             div style="text-align: center; margin: 30px 0;" {
-                div style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px 40px; border-radius: 12px; font-size: 36px; font-weight: bold; color: white; letter-spacing: 8px; font-family: monospace;" {
+                div style="display: inline-block; background: #4A5759; padding: 20px 40px; border-radius: 12px; font-size: 36px; font-weight: bold; color: white; letter-spacing: 8px; font-family: monospace;" {
                     (verification_code)
                 }
             }

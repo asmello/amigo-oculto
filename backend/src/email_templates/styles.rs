@@ -1,16 +1,17 @@
 /// CSS styles for email templates
+/// Color palette: charcoal (#4A5759), sage (#B0C4B1), cream (#F7E1D7), sage-light (#DEDBD2), blush (#EDAFB8)
 pub const EMAIL_STYLES: &str = r#"
 body {
     font-family: Arial, sans-serif;
     line-height: 1.6;
-    color: #333;
+    color: #4A5759;
     max-width: 600px;
     margin: 0 auto;
     padding: 20px;
 }
 
 .header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #4A5759;
     color: white;
     padding: 30px;
     border-radius: 10px 10px 0 0;
@@ -28,10 +29,10 @@ body {
 }
 
 .content {
-    background: #f9f9f9;
+    background: #F7E1D7;
     padding: 30px;
     border-radius: 0 0 10px 10px;
-    border: 1px solid #ddd;
+    border: 1px solid #DEDBD2;
     border-top: none;
 }
 
@@ -44,7 +45,7 @@ body {
     padding: 20px;
     border-radius: 8px;
     margin: 25px 0;
-    border-left: 4px solid #667eea;
+    border-left: 4px solid #4A5759;
 }
 
 .success-box {
@@ -52,7 +53,7 @@ body {
     padding: 20px;
     border-radius: 8px;
     margin: 20px 0;
-    border-left: 4px solid #28a745;
+    border-left: 4px solid #B0C4B1;
 }
 
 .warning-box {
@@ -71,7 +72,7 @@ body {
 
 .btn {
     display: inline-block;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #4A5759;
     color: white;
     padding: 15px 40px;
     text-decoration: none;
@@ -86,14 +87,14 @@ body {
 
 .text-muted {
     font-size: 14px;
-    color: #666;
+    color: #697478;
 }
 
 .footer {
     text-align: center;
     margin-top: 20px;
     padding: 20px;
-    color: #999;
+    color: #879093;
     font-size: 12px;
 }
 
@@ -102,7 +103,7 @@ body {
 }
 
 a {
-    color: #667eea;
+    color: #4A5759;
     word-break: break-all;
 }
 "#;

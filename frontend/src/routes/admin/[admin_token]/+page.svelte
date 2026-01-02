@@ -31,7 +31,7 @@
 	<title>Administração - Amigo Oculto</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+<div class="min-h-screen bg-cream flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
 	<div class="max-w-md w-full">
 		<div class="bg-white rounded-lg shadow-xl p-8">
 			<div class="text-center mb-6">

@@ -58,18 +58,18 @@
 	<title>Admin - Login</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-gray-800 via-gray-900 to-black py-12 px-4 sm:px-6 lg:px-8">
+<div class="min-h-screen bg-cream py-12 px-4 sm:px-6 lg:px-8">
 	<div class="max-w-md mx-auto">
 		<div class="text-center mb-8">
-			<h1 class="text-5xl font-bold text-white mb-2">🔐</h1>
-			<h1 class="text-3xl font-bold text-white mb-2">Administração do Site</h1>
-			<p class="text-gray-400">Acesso restrito</p>
+			<h1 class="text-5xl font-bold text-charcoal mb-2">🔐</h1>
+			<h1 class="text-3xl font-bold text-charcoal mb-2">Administração do Site</h1>
+			<p class="text-charcoal-700">Acesso restrito</p>
 		</div>
 
-		<div class="bg-gray-800 rounded-lg shadow-xl p-8 border border-gray-700">
+		<div class="bg-white rounded-lg shadow-xl p-8 border border-sage-light">
 			<form on:submit|preventDefault={handleLogin} class="space-y-6">
 				<div>
-					<label for="password" class="block text-sm font-medium text-gray-300 mb-2">
+					<label for="password" class="block text-sm font-medium text-charcoal-700 mb-2">
 						Senha de Administrador
 					</label>
 					<input
@@ -79,12 +79,12 @@
 						placeholder="Digite a senha"
 						required
 						autofocus
-						class="w-full px-4 py-3 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400"
+						class="w-full px-4 py-3 bg-cream-50 border border-sage-light text-charcoal rounded-lg focus:ring-2 focus:ring-charcoal focus:border-transparent placeholder-charcoal-400"
 					/>
 				</div>
 
 				{#if error}
-					<div class="bg-red-900/30 border border-red-700 text-red-300 px-4 py-3 rounded-lg">
+					<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
 						{error}
 					</div>
 				{/if}
@@ -92,7 +92,7 @@
 				<button
 					type="submit"
 					disabled={loading}
-					class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+					class="w-full bg-charcoal text-white py-3 px-4 rounded-lg font-semibold hover:bg-charcoal-700 focus:outline-none focus:ring-2 focus:ring-charcoal focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
 				>
 					{loading ? 'Entrando...' : 'Entrar'}
 				</button>
@@ -100,7 +100,7 @@
 		</div>
 
 		<div class="mt-6 text-center">
-			<a href="/" class="text-gray-400 hover:text-white text-sm">
+			<a href="/" class="text-charcoal-600 hover:text-charcoal text-sm">
 				← Voltar para o site
 			</a>
 		</div>
