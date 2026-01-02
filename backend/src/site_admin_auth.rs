@@ -5,11 +5,11 @@
 
 use crate::{db::Database, token::AdminSessionToken};
 use axum::{
+    Json,
     extract::{FromRequestParts, Request, State},
-    http::{request::Parts, StatusCode},
+    http::{StatusCode, request::Parts},
     middleware::Next,
     response::{IntoResponse, Response},
-    Json,
 };
 
 /// Extractor for the authenticated admin session token.

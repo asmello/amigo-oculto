@@ -3,9 +3,9 @@ use crate::token::{AdminToken, GameId, ViewToken};
 use anyhow::Result;
 use chrono::{Locale, NaiveDate};
 use lettre::{
-    message::{header::ContentType, Mailbox, Message},
-    transport::smtp::authentication::Credentials,
     AsyncSmtpTransport, AsyncTransport, Tokio1Executor,
+    message::{Mailbox, Message, header::ContentType},
+    transport::smtp::authentication::Credentials,
 };
 use std::sync::Arc;
 use url::Url;
@@ -233,7 +233,8 @@ impl EmailService {
         let formatted_date = format_brazilian_date(event_date);
 
         // Generate HTML using Maud template (XSS-safe)
-        let html_body = html::admin_welcome_email(game_name, &formatted_date, &admin_url).into_string();
+        let html_body =
+            html::admin_welcome_email(game_name, &formatted_date, &admin_url).into_string();
 
         // Generate plain-text
         let plain_body = plain::admin_welcome_email(game_name, &formatted_date, &admin_url);

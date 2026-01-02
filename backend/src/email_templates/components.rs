@@ -1,4 +1,4 @@
-use maud::{html, Markup};
+use maud::{Markup, html};
 use url::Url;
 
 /// Header component with gradient background

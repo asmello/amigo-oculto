@@ -1,5 +1,5 @@
-use maud::{html, Markup, DOCTYPE, PreEscaped};
 use crate::email_templates::styles::EMAIL_STYLES;
+use maud::{DOCTYPE, Markup, PreEscaped, html};
 
 /// Base HTML email layout
 pub fn email_layout(title: &str, content: Markup) -> Markup {

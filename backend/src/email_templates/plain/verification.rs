@@ -1,10 +1,7 @@
 const FOOTER: &str = "---\nAmigo Oculto - Sistema de Sorteio";
 
 /// Email verification code plain-text email
-pub fn verification_email(
-    game_name: &str,
-    verification_code: &str,
-) -> String {
+pub fn verification_email(game_name: &str, verification_code: &str) -> String {
     format!(
         "Código de Verificação - Amigo Oculto 🎁
 
@@ -26,11 +23,7 @@ Se você não solicitou este código, ignore este email.
 }
 
 /// Admin welcome email (sent immediately after game creation)
-pub fn admin_welcome_email(
-    game_name: &str,
-    event_date: &str,
-    admin_url: &url::Url,
-) -> String {
+pub fn admin_welcome_email(game_name: &str, event_date: &str, admin_url: &url::Url) -> String {
     format!(
         "Seu jogo foi criado com sucesso! 🎉
 
