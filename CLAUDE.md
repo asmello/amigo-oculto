@@ -108,13 +108,49 @@ Error handling should prioritise context. We use `anyhow`, which provides the `C
 
 We adhere to the convention that panics should only happen when there's a bug in our application. At the same time, when an invariant we rely upon is violated, we should always panic rather than continue the program. A caveat is that a panic that happens when handling a request will typically be intercepted by axum, and won't cause the whole server to crash. Because of this, if any bugs would cause state corruption that persists across requests, they should trigger a graceful shutdown of the server (or immediately abort, depending on severity).
 
-## CI/CD
+## CI/CD & GitHub Workflow
 
-The project uses GitHub Actions for CI and automatic deployment:
+### Branch Protection
 
-- **Branch protection**: Direct pushes to `main` are not allowed; all changes go through PRs
-- **PR checks**: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, `pnpm run check`, `pnpm run build`
-- **Staging deploy**: Commits to `main` automatically deploy to Fly.io (`amigo-oculto-staging`)
-- **Dependabot**: Weekly updates for Cargo, npm, and GitHub Actions dependencies
+The `main` branch is protected with the following rules:
+- **No direct pushes** - All changes must go through pull requests
+- **Signed commits required** - All commits must be GPG/SSH signed
+- **CI checks must pass** - PRs cannot be merged until all checks succeed
 
-When making changes, ensure `cargo fmt` and `cargo clippy` pass before committing. The CI will reject PRs with formatting issues or clippy warnings.
+### Making Changes
+
+Always work on a feature branch and create a PR:
+
+```bash
+git checkout -b my-feature
+# make changes
+cargo fmt --manifest-path backend/Cargo.toml
+cargo clippy --manifest-path backend/Cargo.toml -- -D warnings
+git add -A && git commit -m "feat: description"
+git push -u origin my-feature
+gh pr create --title "feat: description" --body "Summary of changes"
+```
+
+After CI passes, merge with squash: `gh pr merge --squash`
+
+### CI Checks (on PRs)
+
+- `fmt` - Rust formatting check
+- `clippy / stable` - Linting on stable Rust
+- `clippy / beta` - Linting on beta Rust (catches upcoming issues)
+- `test` - Unit tests
+- `frontend` - TypeScript check and build
+
+### Automatic Deployment
+
+Commits to `main` automatically deploy to Fly.io staging (`amigo-oculto-staging`).
+
+### Scheduled Builds
+
+Daily builds run at 7:00 UTC to catch breakages from:
+- Rust nightly changes
+- Dependency updates
+
+### Dependabot
+
+Weekly updates for Cargo, npm, and GitHub Actions. Major version bumps may require manual migration (check CI logs for breaking changes).
