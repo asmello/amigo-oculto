@@ -805,8 +805,8 @@ pub async fn resend_verification(
     // Generate new code
     let new_code = {
         use rand::Rng;
-        let mut rng = rand::thread_rng();
-        format!("{:06}", rng.gen_range(0..1000000))
+        let mut rng = rand::rng();
+        format!("{:06}", rng.random_range(0..1000000))
     };
     let new_expires_at = Utc::now() + Duration::minutes(15);
 
