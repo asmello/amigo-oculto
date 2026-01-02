@@ -1,5 +1,7 @@
 # Run scheduled jobs to catch breakages from Rust nightly or dependency updates
 name: Scheduled
+permissions:
+  contents: read
 
 on:
   schedule:
