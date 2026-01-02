@@ -1,10 +1,12 @@
 use crate::models::{EmailVerification, Game, Participant};
-use crate::token::{AdminSessionToken, AdminToken, GameId, ParticipantId, VerificationId, ViewToken};
+use crate::token::{
+    AdminSessionToken, AdminToken, GameId, ParticipantId, VerificationId, ViewToken,
+};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Duration, Utc};
 use sqlx::{
-    sqlite::{SqliteConnectOptions, SqlitePool},
     Row, Sqlite,
+    sqlite::{SqliteConnectOptions, SqlitePool},
 };
 use std::str::FromStr;
 use ulid::Ulid;
@@ -598,7 +600,10 @@ impl Database {
         Ok(row.get("count"))
     }
 
-    pub async fn count_total_participant_resends(&self, participant_id: ParticipantId) -> Result<i64> {
+    pub async fn count_total_participant_resends(
+        &self,
+        participant_id: ParticipantId,
+    ) -> Result<i64> {
         let row = sqlx::query(
             r#"
             SELECT COUNT(*) as count
@@ -688,8 +693,8 @@ impl Database {
         }
 
         // Hash password
-        let password_hash = bcrypt::hash(&password, bcrypt::DEFAULT_COST)
-            .context("hashing site admin password")?;
+        let password_hash =
+            bcrypt::hash(&password, bcrypt::DEFAULT_COST).context("hashing site admin password")?;
 
         // Store in database
         sqlx::query(
@@ -1144,7 +1149,8 @@ mod tests {
         db.create_game(&boundary_game).await.unwrap();
 
         // Create a game one day past the boundary (should be deleted)
-        let past_boundary = Utc::now().date_naive() - Duration::days(GAME_RETENTION_DAYS as i64 + 1);
+        let past_boundary =
+            Utc::now().date_naive() - Duration::days(GAME_RETENTION_DAYS as i64 + 1);
         let old_game = create_test_game("old_game", past_boundary);
         db.create_game(&old_game).await.unwrap();
 
@@ -1171,14 +1177,19 @@ mod tests {
         db.create_game(&game).await.unwrap();
 
         // Add participants
-        let participant1 = Participant::new(game.id, "Alice".to_string(), "alice@test.com".to_string());
+        let participant1 =
+            Participant::new(game.id, "Alice".to_string(), "alice@test.com".to_string());
         let participant2 = Participant::new(game.id, "Bob".to_string(), "bob@test.com".to_string());
         db.add_participant(&participant1).await.unwrap();
         db.add_participant(&participant2).await.unwrap();
 
         // Record email resends (references both game and participants)
-        db.record_email_resend(game.id, None, "admin_link").await.unwrap();
-        db.record_email_resend(game.id, Some(participant1.id), "participant_reveal").await.unwrap();
+        db.record_email_resend(game.id, None, "admin_link")
+            .await
+            .unwrap();
+        db.record_email_resend(game.id, Some(participant1.id), "participant_reveal")
+            .await
+            .unwrap();
 
         // Verify records exist
         assert!(db.get_game_by_id(game.id).await.unwrap().is_some());

@@ -1,5 +1,5 @@
 use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
@@ -187,4 +187,7 @@ macro_rules! define_token_type {
 
 define_token_type!(AdminToken, "Token for game organizer (admin) access");
 define_token_type!(ViewToken, "Token for participant match reveal access");
-define_token_type!(AdminSessionToken, "Session token for site administrator access");
+define_token_type!(
+    AdminSessionToken,
+    "Session token for site administrator access"
+);

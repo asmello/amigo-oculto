@@ -108,15 +108,13 @@ Error handling should prioritise context. We use `anyhow`, which provides the `C
 
 We adhere to the convention that panics should only happen when there's a bug in our application. At the same time, when an invariant we rely upon is violated, we should always panic rather than continue the program. A caveat is that a panic that happens when handling a request will typically be intercepted by axum, and won't cause the whole server to crash. Because of this, if any bugs would cause state corruption that persists across requests, they should trigger a graceful shutdown of the server (or immediately abort, depending on severity).
 
-## Tool preferences
+## CI/CD
 
-### Git
+The project uses GitHub Actions for CI and automatic deployment:
 
-Prefer the Git MCP server tools (`mcp__git__*`) for common operations like `git_status`, `git_log`, `git_show`, `git_diff`, `git_add`, `git_commit`, etc.
+- **Branch protection**: Direct pushes to `main` are not allowed; all changes go through PRs
+- **PR checks**: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`, `pnpm run check`, `pnpm run build`
+- **Staging deploy**: Commits to `main` automatically deploy to Fly.io (`amigo-oculto-staging`)
+- **Dependabot**: Weekly updates for Cargo, npm, and GitHub Actions dependencies
 
-Use direct `git` commands via Bash only when the MCP tools lack the required functionality, such as:
-- Range diffs with file filters (e.g., `git diff A..B -- path/to/file`)
-- Complex revision specifications (e.g., `HEAD~3`, `branch1...branch2`)
-- Commands not exposed by the MCP server (e.g., `git stash`, `git rebase`, `git cherry-pick`)
-
-When falling back to direct git commands, briefly explain why the MCP tool was insufficient.
+When making changes, ensure `cargo fmt` and `cargo clippy` pass before committing. The CI will reject PRs with formatting issues or clippy warnings.

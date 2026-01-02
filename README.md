@@ -266,11 +266,11 @@ BASE_URL=https://amigo.seudominio.com
 docker-compose up -d
 ```
 
-### Serviços Cloud (Fly.io, Railway, etc.)
+### Serviços Cloud (Fly.io)
 
-1. **Build da imagem Docker**
-2. **Configure as variáveis de ambiente**
-3. **Deploy!**
+Este projeto está configurado para deploy no [Fly.io](https://fly.io). Commits na branch `main` são automaticamente deployados para staging via GitHub Actions.
+
+Veja [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes sobre o pipeline de CI/CD.
 
 ## 🔒 Segurança
 

@@ -32,7 +32,9 @@ async fn main() -> anyhow::Result<()> {
     let db = Database::from_env().await?;
 
     // Initialize site admin password if not already set
-    db.init_site_admin_password().await.context("initializing site admin password")?;
+    db.init_site_admin_password()
+        .await
+        .context("initializing site admin password")?;
 
     let cancel = CancellationToken::new();
     let server = Server::new(&db, cancel.clone())?;
