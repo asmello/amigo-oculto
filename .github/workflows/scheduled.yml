@@ -1,0 +1,42 @@
+# Run scheduled jobs to catch breakages from Rust nightly or dependency updates
+name: Scheduled
+
+on:
+  schedule:
+    - cron: '0 7 * * *'  # Daily at 7:00 UTC
+  workflow_dispatch:  # Allow manual triggering
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  nightly:
+    name: nightly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install nightly
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # master
+        with:
+          toolchain: nightly
+          components: clippy
+      - name: cargo clippy
+        run: cargo clippy --manifest-path backend/Cargo.toml -- -D warnings
+      - name: cargo test
+        run: cargo test --manifest-path backend/Cargo.toml
+
+  updated-deps:
+    name: updated deps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # master
+        with:
+          toolchain: stable
+      - name: cargo update
+        run: cargo update --manifest-path backend/Cargo.toml
+      - name: cargo test
+        run: cargo test --manifest-path backend/Cargo.toml
+        env:
+          RUSTFLAGS: -D deprecated
