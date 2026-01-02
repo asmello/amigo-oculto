@@ -26,7 +26,7 @@ thiserror = "1.0"
 dotenvy = "0.15"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-rand = "0.8"
+rand = "0.9"
 url = "2.5.7"
 maud = "0.26"
 bcrypt = "0.17"
