@@ -94,7 +94,7 @@ body {
     text-align: center;
     margin-top: 20px;
     padding: 20px;
-    color: #879093;
+    color: white;
     font-size: 12px;
 }
 
