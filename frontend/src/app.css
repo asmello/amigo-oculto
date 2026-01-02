@@ -1,6 +1,66 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+	--color-blush-50: #FDF8F9;
+	--color-blush-100: #F9EEF0;
+	--color-blush-200: #F5DFE3;
+	--color-blush-300: #EDAFB8;
+	--color-blush-400: #E28A98;
+	--color-blush-500: #D76578;
+	--color-blush-600: #C44058;
+	--color-blush-700: #9E3347;
+	--color-blush-800: #782636;
+	--color-blush-900: #521A25;
+	--color-blush: #EDAFB8;
+
+	--color-cream-50: #FEFCFB;
+	--color-cream-100: #FCF5F1;
+	--color-cream-200: #F7E1D7;
+	--color-cream-300: #EFC9B5;
+	--color-cream-400: #E7B193;
+	--color-cream-500: #DF9971;
+	--color-cream-600: #D7814F;
+	--color-cream-700: #B56837;
+	--color-cream-800: #8F522C;
+	--color-cream-900: #693C20;
+	--color-cream: #F7E1D7;
+
+	--color-sage-light-50: #FAFAF9;
+	--color-sage-light-100: #F3F2EF;
+	--color-sage-light-200: #DEDBD2;
+	--color-sage-light-300: #C9C4B5;
+	--color-sage-light-400: #B4AD98;
+	--color-sage-light-500: #9F967B;
+	--color-sage-light-600: #857A5F;
+	--color-sage-light-700: #6A614C;
+	--color-sage-light-800: #4F4839;
+	--color-sage-light-900: #342F26;
+	--color-sage-light: #DEDBD2;
+
+	--color-sage-50: #F5F8F5;
+	--color-sage-100: #E8EEE8;
+	--color-sage-200: #D0DED1;
+	--color-sage-300: #B0C4B1;
+	--color-sage-400: #8FAA91;
+	--color-sage-500: #6E9071;
+	--color-sage-600: #567356;
+	--color-sage-700: #435943;
+	--color-sage-800: #303F30;
+	--color-sage-900: #1E251E;
+	--color-sage: #B0C4B1;
+
+	--color-charcoal-50: #F3F4F4;
+	--color-charcoal-100: #E1E4E4;
+	--color-charcoal-200: #C3C8C9;
+	--color-charcoal-300: #A5ACAE;
+	--color-charcoal-400: #879093;
+	--color-charcoal-500: #697478;
+	--color-charcoal-600: #4A5759;
+	--color-charcoal-700: #3A4345;
+	--color-charcoal-800: #2A2F30;
+	--color-charcoal-900: #1A1C1C;
+	--color-charcoal: #4A5759;
+}
 
 body {
 	@apply bg-charcoal;
