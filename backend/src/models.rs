@@ -18,8 +18,8 @@ pub struct EmailVerification {
 impl EmailVerification {
     pub fn new(email: String, game_name: String, event_date: NaiveDate) -> Self {
         use rand::Rng;
-        let mut rng = rand::thread_rng();
-        let code = format!("{:06}", rng.gen_range(0..1000000));
+        let mut rng = rand::rng();
+        let code = format!("{:06}", rng.random_range(0..1000000));
         let created_at = Utc::now();
         let expires_at = created_at + chrono::Duration::minutes(15);
 

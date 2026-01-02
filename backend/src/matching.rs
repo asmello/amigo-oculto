@@ -1,8 +1,8 @@
 use crate::models::Participant;
 use crate::token::ParticipantId;
 use anyhow::{Result, anyhow};
+use rand::rng;
 use rand::seq::SliceRandom;
-use rand::thread_rng;
 
 /// Generate random matches ensuring there's a single loop
 pub fn generate_matches(
@@ -14,7 +14,7 @@ pub fn generate_matches(
         ));
     }
 
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let mut participant_ids: Vec<ParticipantId> = participants.iter().map(|p| p.id).collect();
     participant_ids.shuffle(&mut rng);
 

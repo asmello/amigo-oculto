@@ -1,5 +1,5 @@
-use rand::distributions::Alphanumeric;
-use rand::{Rng, thread_rng};
+use rand::distr::Alphanumeric;
+use rand::{Rng, rng};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
@@ -112,7 +112,7 @@ macro_rules! define_token_type {
         impl $name {
             /// Generate a new secure random token
             pub fn generate() -> Self {
-                let token: String = thread_rng()
+                let token: String = rng()
                     .sample_iter(&Alphanumeric)
                     .take(TOKEN_LENGTH)
                     .map(char::from)
