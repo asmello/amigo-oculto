@@ -1,11 +1,13 @@
 use crate::models::Participant;
 use crate::token::ParticipantId;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
-/// Generate random matches ensuring nobody draws themselves
-pub fn generate_matches(participants: &[Participant]) -> Result<Vec<(ParticipantId, ParticipantId)>> {
+/// Generate random matches ensuring there's a single loop
+pub fn generate_matches(
+    participants: &[Participant],
+) -> Result<Vec<(ParticipantId, ParticipantId)>> {
     if participants.len() < 2 {
         return Err(anyhow!(
             "Precisa de pelo menos 2 participantes para fazer o sorteio"
@@ -13,32 +15,14 @@ pub fn generate_matches(participants: &[Participant]) -> Result<Vec<(Participant
     }
 
     let mut rng = thread_rng();
-    let participant_ids: Vec<ParticipantId> = participants.iter().map(|p| p.id).collect();
+    let mut participant_ids: Vec<ParticipantId> = participants.iter().map(|p| p.id).collect();
+    participant_ids.shuffle(&mut rng);
 
-    // Try up to 100 times to generate a valid matching
-    for _ in 0..100 {
-        let mut shuffled = participant_ids.clone();
-        shuffled.shuffle(&mut rng);
-
-        // Check if anyone drew themselves
-        let valid = participant_ids
-            .iter()
-            .zip(shuffled.iter())
-            .all(|(giver, receiver)| giver != receiver);
-
-        if valid {
-            // Create matches: (giver_id, receiver_id)
-            return Ok(participant_ids
-                .iter()
-                .zip(shuffled.iter())
-                .map(|(giver, receiver)| (*giver, *receiver))
-                .collect());
-        }
-    }
-
-    Err(anyhow!(
-        "Não foi possível gerar um sorteio válido após 100 tentativas"
-    ))
+    Ok(participant_ids
+        .iter()
+        .cloned()
+        .zip(participant_ids.iter().cycle().skip(1).cloned())
+        .collect())
 }
 
 #[cfg(test)]
