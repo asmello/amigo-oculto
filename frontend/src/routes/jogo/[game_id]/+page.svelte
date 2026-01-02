@@ -2,12 +2,12 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 
-	let gameId = '';
+	let gameId: string | undefined;
 	let adminToken = '';
 	let gameData: any = null;
 	let loading = true;
 	let error = '';
-	
+
 	let participantName = '';
 	let participantEmail = '';
 	let addingParticipant = false;
@@ -27,13 +27,19 @@
 	onMount(() => {
 		gameId = $page.params.game_id;
 		adminToken = $page.url.searchParams.get('admin_token') || '';
-		
+
+		if (!gameId) {
+			error = 'ID do jogo não fornecido';
+			loading = false;
+			return;
+		}
+
 		if (!adminToken) {
 			error = 'Token de administrador não fornecido';
 			loading = false;
 			return;
 		}
-		
+
 		loadGameData();
 	});
 

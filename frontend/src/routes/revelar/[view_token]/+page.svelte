@@ -2,13 +2,18 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 
-	let viewToken = '';
+	let viewToken: string | undefined;
 	let revealData: any = null;
 	let loading = true;
 	let error = '';
 
 	onMount(() => {
 		viewToken = $page.params.view_token;
+		if (!viewToken) {
+			error = 'Link inválido';
+			loading = false;
+			return;
+		}
 		loadRevealData();
 	});
 

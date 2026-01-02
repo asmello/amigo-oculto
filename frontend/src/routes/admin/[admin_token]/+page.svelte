@@ -2,13 +2,18 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 
-	let adminToken = '';
+	let adminToken: string | undefined;
 	let gameData: any = null;
 	let loading = true;
 	let error = '';
 
 	onMount(() => {
 		adminToken = $page.params.admin_token;
+		if (!adminToken) {
+			error = 'Token de administrador não fornecido';
+			loading = false;
+			return;
+		}
 		loadGameData();
 	});
 
