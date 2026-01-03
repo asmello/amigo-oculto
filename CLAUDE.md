@@ -43,7 +43,7 @@ docker build -t amigo-oculto:latest .  # Full production build
 - `models.rs` - Data structures (Game, Participant, EmailVerification)
 - `matching.rs` - Secret Santa matching algorithm (Fisher-Yates shuffle)
 - `email.rs` - SMTP email service (Lettre)
-- `token.rs` - Secure 32-char alphanumeric token generation
+- `token.rs` - Typed newtypes for IDs, tokens, and domain values (EmailAddress, VerificationCode)
 - `email_templates/` - HTML/plain text email templates using Maud
 
 **Frontend** (`/frontend/src/`):
@@ -96,7 +96,15 @@ STATIC_DIR=../frontend/build
 
 ## Style guidance
 
-The Rust code should favour type safety. Whenever a value represents an identifier or a token, it should use the newtype pattern, instead of simply be defined as a `String` or `&str` type, for example. Similarly, dates and other values that are typically represented as strings when serialized in API boundaries should internally be held in data structures as unambiguous types such as `chrono::DateTime`.
+The Rust code should favour type safety. Whenever a value represents an identifier, token, or domain-specific value, it should use the newtype pattern instead of primitive types like `String` or `&str`. Examples in this codebase:
+
+- **IDs**: `GameId`, `ParticipantId`, `VerificationId` (wrap ULID)
+- **Tokens**: `AdminToken`, `ViewToken`, `AdminSessionToken` (wrap String, 32-char alphanumeric)
+- **Domain values**: `EmailAddress` (wraps `lettre::address::Address`), `VerificationCode` (6-digit numeric, uses `[u8; 6]`)
+
+Newtypes should implement validation in `FromStr` and serde's `Deserialize`, so invalid values are rejected at API boundaries during JSON deserialization (resulting in HTTP 422). This is preferable to accepting invalid data and failing later during processing. For values that are `Copy` (like `VerificationCode`), pass by value rather than by reference.
+
+Similarly, dates and other values that are typically represented as strings when serialized should internally be held in data structures as unambiguous types such as `chrono::DateTime`.
 
 Use unsigned integer types where semantically appropriate. Counts, pagination parameters (limit, offset), and other naturally non-negative values should use unsigned types (`u32`, `u64`, `usize`) rather than signed types. This makes the API more self-documenting and prevents invalid negative values. Note that SQLite returns signed integers (`i64`), so conversion at the database boundary may be necessary.
 
