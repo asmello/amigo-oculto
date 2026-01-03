@@ -68,19 +68,6 @@ pub struct Participant {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CreateGameRequest {
-    pub name: String,
-    pub event_date: NaiveDate,
-    pub organizer_email: EmailAddress,
-}
-
-#[derive(Debug, Serialize)]
-pub struct CreateGameResponse {
-    pub game_id: GameId,
-    pub admin_token: String,
-}
-
-#[derive(Debug, Deserialize)]
 pub struct AddParticipantRequest {
     pub name: String,
     pub email: EmailAddress,
