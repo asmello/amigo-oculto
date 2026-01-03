@@ -11,7 +11,7 @@ use anyhow::Context;
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderValue, StatusCode},
     middleware,
     response::IntoResponse,
     routing::{get, get_service, patch, post},
@@ -20,10 +20,11 @@ use chrono::{Duration, Utc};
 use serde::Deserialize;
 use std::sync::Arc;
 use tower_http::{
-    cors::{self, CorsLayer},
+    cors::{self, AllowOrigin, CorsLayer},
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
 };
+use url::Url;
 
 /// Maximum number of participants allowed per game to prevent abuse
 const MAX_PARTICIPANTS_PER_GAME: u64 = 100;
@@ -70,8 +71,23 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
         .nest("/site-admin", site_admin_protected)
         .with_state(state);
 
+    let base_url = std::env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:3000".into());
+    let base_url = Url::parse(&base_url).expect("BASE_URL must be a valid URL");
+    let base_origin = base_url.origin().ascii_serialization();
+    let base_origin_header =
+        HeaderValue::from_str(&base_origin).expect("BASE_URL must be a valid origin URL");
+    let is_localhost = matches!(base_url.host_str(), Some("localhost" | "127.0.0.1"));
+    let dev_origin = if is_localhost {
+        Some(HeaderValue::from_static("http://localhost:5173"))
+    } else {
+        None
+    };
+    let allowed_origins = std::iter::once(base_origin_header)
+        .chain(dev_origin)
+        .collect::<Vec<_>>();
+
     let cors = CorsLayer::new()
-        .allow_origin(cors::Any)
+        .allow_origin(AllowOrigin::list(allowed_origins))
         .allow_methods(cors::Any)
         .allow_headers(cors::Any);
 
