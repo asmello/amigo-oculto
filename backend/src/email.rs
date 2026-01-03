@@ -1,5 +1,5 @@
 use crate::email_templates::{html, plain};
-use crate::token::{AdminToken, GameId, ViewToken};
+use crate::token::{AdminToken, EmailAddress, GameId, ViewToken};
 use anyhow::Result;
 use chrono::{Locale, NaiveDate};
 use lettre::{
@@ -94,7 +94,7 @@ impl EmailService {
     pub async fn send_participant_notification(
         &self,
         participant_name: &str,
-        participant_email: &str,
+        participant_email: &EmailAddress,
         game_name: &str,
         event_date: NaiveDate,
         view_token: &ViewToken,
@@ -113,7 +113,7 @@ impl EmailService {
 
         let email = Message::builder()
             .from(self.inner.from_address.clone())
-            .to(participant_email.parse()?)
+            .to(participant_email.to_mailbox())
             .subject(format!("🎁 {}", game_name))
             .multipart(
                 lettre::message::MultiPart::alternative()
@@ -146,7 +146,7 @@ impl EmailService {
 
     pub async fn send_organizer_confirmation(
         &self,
-        organizer_email: &str,
+        organizer_email: &EmailAddress,
         game_name: &str,
         event_date: NaiveDate,
         game_id: GameId,
@@ -167,7 +167,7 @@ impl EmailService {
 
         let email = Message::builder()
             .from(self.inner.from_address.clone())
-            .to(organizer_email.parse()?)
+            .to(organizer_email.to_mailbox())
             .subject(format!("✅ Sorteio Realizado: {}", game_name))
             .multipart(
                 lettre::message::MultiPart::alternative()
@@ -189,7 +189,7 @@ impl EmailService {
 
     pub async fn send_verification_code(
         &self,
-        recipient_email: &str,
+        recipient_email: &EmailAddress,
         game_name: &str,
         verification_code: &str,
     ) -> Result<()> {
@@ -201,7 +201,7 @@ impl EmailService {
 
         let email = Message::builder()
             .from(self.inner.from_address.clone())
-            .to(recipient_email.parse()?)
+            .to(recipient_email.to_mailbox())
             .subject("🔐 Código de Verificação")
             .multipart(
                 lettre::message::MultiPart::alternative()
@@ -223,7 +223,7 @@ impl EmailService {
 
     pub async fn send_admin_welcome(
         &self,
-        organizer_email: &str,
+        organizer_email: &EmailAddress,
         game_name: &str,
         event_date: NaiveDate,
         game_id: GameId,
@@ -241,7 +241,7 @@ impl EmailService {
 
         let email = Message::builder()
             .from(self.inner.from_address.clone())
-            .to(organizer_email.parse()?)
+            .to(organizer_email.to_mailbox())
             .subject(format!("🎉 Jogo Criado: {}", game_name))
             .multipart(
                 lettre::message::MultiPart::alternative()

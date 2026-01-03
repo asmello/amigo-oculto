@@ -36,7 +36,7 @@ mod tests {
             id: ParticipantId::new(),
             game_id: GameId::new(),
             name: name.to_string(),
-            email: format!("{}@test.com", name),
+            email: format!("{}@test.com", name).parse().unwrap(),
             matched_with_id: None,
             view_token: ViewToken::generate(),
             has_viewed: false,

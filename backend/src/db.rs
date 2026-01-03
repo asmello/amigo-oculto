@@ -1,6 +1,6 @@
 use crate::models::{EmailVerification, Game, Participant};
 use crate::token::{
-    AdminSessionToken, AdminToken, GameId, ParticipantId, VerificationId, ViewToken,
+    AdminSessionToken, AdminToken, EmailAddress, GameId, ParticipantId, VerificationId, ViewToken,
 };
 use anyhow::{Context, Result};
 use chrono::{DateTime, Duration, Utc};
@@ -320,7 +320,7 @@ impl Database {
         &self,
         participant_id: ParticipantId,
         name: Option<String>,
-        email: Option<String>,
+        email: Option<EmailAddress>,
     ) -> Result<()> {
         // Build dynamic update query based on what fields are provided
         if let Some(new_name) = name {
@@ -458,7 +458,7 @@ impl Database {
 
     pub async fn count_recent_verifications_by_email(
         &self,
-        email: &str,
+        email: &EmailAddress,
         since: DateTime<Utc>,
     ) -> Result<i64> {
         let row = sqlx::query(
@@ -1051,7 +1051,7 @@ mod tests {
             id: GameId::new(),
             name: name.to_string(),
             event_date,
-            organizer_email: format!("{}@test.com", name),
+            organizer_email: format!("{}@test.com", name).parse().unwrap(),
             admin_token: crate::token::AdminToken::generate(),
             created_at: Utc::now(),
             drawn: false,
@@ -1177,9 +1177,13 @@ mod tests {
         db.create_game(&game).await.unwrap();
 
         // Add participants
-        let participant1 =
-            Participant::new(game.id, "Alice".to_string(), "alice@test.com".to_string());
-        let participant2 = Participant::new(game.id, "Bob".to_string(), "bob@test.com".to_string());
+        let participant1 = Participant::new(
+            game.id,
+            "Alice".to_string(),
+            "alice@test.com".parse().unwrap(),
+        );
+        let participant2 =
+            Participant::new(game.id, "Bob".to_string(), "bob@test.com".parse().unwrap());
         db.add_participant(&participant1).await.unwrap();
         db.add_participant(&participant2).await.unwrap();
 
