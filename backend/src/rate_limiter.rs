@@ -28,9 +28,7 @@ impl RateLimitState {
     pub async fn prune(&self) {
         let now = Instant::now();
         let mut buckets = self.buckets.lock().await;
-        buckets.retain(|_, bucket| {
-            now.duration_since(bucket.last_refill) <= RATE_LIMIT_RETENTION
-        });
+        buckets.retain(|_, bucket| now.duration_since(bucket.last_refill) <= RATE_LIMIT_RETENTION);
     }
 
     pub async fn record_and_check(&self, client_ip: IpAddr) -> bool {

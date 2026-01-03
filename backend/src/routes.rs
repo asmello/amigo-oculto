@@ -19,10 +19,7 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use serde::Deserialize;
-use std::{
-    net::IpAddr,
-    sync::Arc,
-};
+use std::{net::IpAddr, sync::Arc};
 use tower_http::{
     cors::{self, AllowOrigin, CorsLayer},
     services::{ServeDir, ServeFile},

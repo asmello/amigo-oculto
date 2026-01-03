@@ -1,6 +1,6 @@
 use crate::{
     db::Database,
-    rate_limiter::{RateLimitState, RATE_LIMIT_WINDOW},
+    rate_limiter::{RATE_LIMIT_WINDOW, RateLimitState},
 };
 use anyhow::Result;
 use std::sync::Arc;
