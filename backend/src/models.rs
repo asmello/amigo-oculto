@@ -1,11 +1,11 @@
-use crate::token::{AdminToken, GameId, ParticipantId, VerificationId, ViewToken};
+use crate::token::{AdminToken, EmailAddress, GameId, ParticipantId, VerificationId, ViewToken};
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmailVerification {
     pub id: VerificationId,
-    pub email: String,
+    pub email: EmailAddress,
     pub code: String,
     pub game_name: String,
     pub event_date: NaiveDate,
@@ -16,7 +16,7 @@ pub struct EmailVerification {
 }
 
 impl EmailVerification {
-    pub fn new(email: String, game_name: String, event_date: NaiveDate) -> Self {
+    pub fn new(email: EmailAddress, game_name: String, event_date: NaiveDate) -> Self {
         use rand::Rng;
         let mut rng = rand::rng();
         let code = format!("{:06}", rng.random_range(0..1000000));
@@ -50,7 +50,7 @@ pub struct Game {
     pub id: GameId,
     pub name: String,
     pub event_date: NaiveDate,
-    pub organizer_email: String,
+    pub organizer_email: EmailAddress,
     pub admin_token: AdminToken,
     pub created_at: DateTime<Utc>,
     pub drawn: bool,
@@ -61,7 +61,7 @@ pub struct Participant {
     pub id: ParticipantId,
     pub game_id: GameId,
     pub name: String,
-    pub email: String,
+    pub email: EmailAddress,
     pub matched_with_id: Option<ParticipantId>,
     pub view_token: ViewToken,
     pub has_viewed: bool,
@@ -72,7 +72,7 @@ pub struct Participant {
 pub struct CreateGameRequest {
     pub name: String,
     pub event_date: NaiveDate,
-    pub organizer_email: String,
+    pub organizer_email: EmailAddress,
 }
 
 #[derive(Debug, Serialize)]
@@ -84,7 +84,7 @@ pub struct CreateGameResponse {
 #[derive(Debug, Deserialize)]
 pub struct AddParticipantRequest {
     pub name: String,
-    pub email: String,
+    pub email: EmailAddress,
 }
 
 #[derive(Debug, Serialize)]
@@ -95,7 +95,7 @@ pub struct AddParticipantResponse {
 #[derive(Debug, Deserialize)]
 pub struct UpdateParticipantRequest {
     pub name: Option<String>,
-    pub email: Option<String>,
+    pub email: Option<EmailAddress>,
 }
 
 #[derive(Debug, Serialize)]
@@ -108,7 +108,7 @@ pub struct GameStatusResponse {
 pub struct ParticipantStatus {
     pub id: ParticipantId,
     pub name: String,
-    pub email: String,
+    pub email: EmailAddress,
     pub has_viewed: bool,
 }
 
@@ -124,7 +124,7 @@ pub struct RevealResponse {
 pub struct RequestVerificationRequest {
     pub name: String,
     pub event_date: NaiveDate,
-    pub organizer_email: String,
+    pub organizer_email: EmailAddress,
 }
 
 #[derive(Debug, Serialize)]
@@ -164,7 +164,7 @@ pub struct ResendVerificationResponse {
 }
 
 impl Game {
-    pub fn new(name: String, event_date: NaiveDate, organizer_email: String) -> Self {
+    pub fn new(name: String, event_date: NaiveDate, organizer_email: EmailAddress) -> Self {
         Self {
             id: GameId::new(),
             name,
@@ -178,7 +178,7 @@ impl Game {
 }
 
 impl Participant {
-    pub fn new(game_id: GameId, name: String, email: String) -> Self {
+    pub fn new(game_id: GameId, name: String, email: EmailAddress) -> Self {
         Self {
             id: ParticipantId::new(),
             game_id,
@@ -238,7 +238,7 @@ pub struct GameSummary {
     pub id: GameId,
     pub name: String,
     pub event_date: NaiveDate,
-    pub organizer_email: String,
+    pub organizer_email: EmailAddress,
     pub created_at: DateTime<Utc>,
     pub drawn: bool,
     pub participant_count: u64,
