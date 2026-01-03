@@ -34,7 +34,17 @@ Commits na branch `main` disparam automaticamente:
 1. Re-execução de todos os checks de CI
 2. Deploy para Fly.io (app: `amigo-oculto-staging`)
 
-O deploy usa o secret `FLY_API_TOKEN` configurado no GitHub.
+### Production
+
+Publicar uma release no GitHub dispara deploy para produção.
+
+```bash
+gh release create v1.0.0 --generate-notes
+```
+
+### Secrets
+
+Os deploys usam o secret `FLY_DEPLOY_TOKEN` configurado no GitHub, com environments separados para `staging` e `production`.
 
 ### Deploy Manual
 
