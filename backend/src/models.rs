@@ -1,4 +1,6 @@
-use crate::token::{AdminToken, EmailAddress, GameId, ParticipantId, VerificationId, ViewToken};
+use crate::token::{
+    AdminToken, EmailAddress, GameId, ParticipantId, VerificationCode, VerificationId, ViewToken,
+};
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -6,7 +8,7 @@ use serde::{Deserialize, Serialize};
 pub struct EmailVerification {
     pub id: VerificationId,
     pub email: EmailAddress,
-    pub code: String,
+    pub code: VerificationCode,
     pub game_name: String,
     pub event_date: NaiveDate,
     pub created_at: DateTime<Utc>,
@@ -17,16 +19,13 @@ pub struct EmailVerification {
 
 impl EmailVerification {
     pub fn new(email: EmailAddress, game_name: String, event_date: NaiveDate) -> Self {
-        use rand::Rng;
-        let mut rng = rand::rng();
-        let code = format!("{:06}", rng.random_range(0..1000000));
         let created_at = Utc::now();
         let expires_at = created_at + chrono::Duration::minutes(15);
 
         Self {
             id: VerificationId::new(),
             email,
-            code,
+            code: VerificationCode::generate(),
             game_name,
             event_date,
             created_at,
@@ -135,7 +134,7 @@ pub struct RequestVerificationResponse {
 #[derive(Debug, Deserialize)]
 pub struct VerifyCodeRequest {
     pub verification_id: VerificationId,
-    pub code: String,
+    pub code: VerificationCode,
 }
 
 #[derive(Debug, Serialize)]

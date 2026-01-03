@@ -2,11 +2,12 @@ use super::base::email_layout;
 use crate::email_templates::components::{
     app_footer, gradient_header, info_box, primary_button, warning_box,
 };
+use crate::token::VerificationCode;
 use maud::{Markup, html};
 use url::Url;
 
 /// Email verification code template
-pub fn verification_email(game_name: &str, verification_code: &str) -> Markup {
+pub fn verification_email(game_name: &str, verification_code: VerificationCode) -> Markup {
     let content = html! {
         (gradient_header("🔐 Código de Verificação", "Amigo Oculto"))
 

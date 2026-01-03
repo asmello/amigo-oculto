@@ -1,7 +1,9 @@
+use crate::token::VerificationCode;
+
 const FOOTER: &str = "---\nAmigo Oculto - Sistema de Sorteio";
 
 /// Email verification code plain-text email
-pub fn verification_email(game_name: &str, verification_code: &str) -> String {
+pub fn verification_email(game_name: &str, verification_code: VerificationCode) -> String {
     format!(
         "Código de Verificação - Amigo Oculto 🎁
 

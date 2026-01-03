@@ -1,5 +1,5 @@
 use crate::email_templates::{html, plain};
-use crate::token::{AdminToken, EmailAddress, GameId, ViewToken};
+use crate::token::{AdminToken, EmailAddress, GameId, VerificationCode, ViewToken};
 use anyhow::Result;
 use chrono::{Locale, NaiveDate};
 use lettre::{
@@ -191,7 +191,7 @@ impl EmailService {
         &self,
         recipient_email: &EmailAddress,
         game_name: &str,
-        verification_code: &str,
+        verification_code: VerificationCode,
     ) -> Result<()> {
         // Generate HTML using Maud template (XSS-safe)
         let html_body = html::verification_email(game_name, verification_code).into_string();

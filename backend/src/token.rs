@@ -279,3 +279,115 @@ impl<'q> sqlx::Encode<'q, sqlx::Sqlite> for EmailAddress {
         <String as sqlx::Encode<sqlx::Sqlite>>::encode_by_ref(&self.0.to_string(), args)
     }
 }
+
+// =============================================================================
+// VerificationCode Newtype (exactly 6 numeric digits)
+// =============================================================================
+
+/// A 6-digit numeric verification code.
+///
+/// This type stores exactly 6 digits (0-9) and validates input at parse/deserialization time.
+/// Invalid codes (wrong length, non-numeric) are rejected at API boundaries.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct VerificationCode([u8; 6]);
+
+/// Error type for invalid verification code format.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InvalidVerificationCode;
+
+impl fmt::Display for InvalidVerificationCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "verification code must be exactly 6 numeric digits")
+    }
+}
+
+impl std::error::Error for InvalidVerificationCode {}
+
+impl VerificationCode {
+    /// Generate a new random 6-digit verification code.
+    pub fn generate() -> Self {
+        let mut rng = rng();
+        let mut digits = [0u8; 6];
+        for digit in &mut digits {
+            *digit = rng.random_range(0..10);
+        }
+        Self(digits)
+    }
+}
+
+impl fmt::Debug for VerificationCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "VerificationCode({})", self)
+    }
+}
+
+impl fmt::Display for VerificationCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for digit in &self.0 {
+            write!(f, "{}", digit)?;
+        }
+        Ok(())
+    }
+}
+
+impl FromStr for VerificationCode {
+    type Err = InvalidVerificationCode;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = s.as_bytes();
+        if bytes.len() != 6 {
+            return Err(InvalidVerificationCode);
+        }
+
+        let mut digits = [0u8; 6];
+        for (i, &byte) in bytes.iter().enumerate() {
+            if !byte.is_ascii_digit() {
+                return Err(InvalidVerificationCode);
+            }
+            digits[i] = byte - b'0';
+        }
+
+        Ok(Self(digits))
+    }
+}
+
+impl Serialize for VerificationCode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for VerificationCode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Self::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
+impl sqlx::Type<sqlx::Sqlite> for VerificationCode {
+    fn type_info() -> sqlx::sqlite::SqliteTypeInfo {
+        <String as sqlx::Type<sqlx::Sqlite>>::type_info()
+    }
+}
+
+impl<'r> sqlx::Decode<'r, sqlx::Sqlite> for VerificationCode {
+    fn decode(value: sqlx::sqlite::SqliteValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
+        let s = <String as sqlx::Decode<sqlx::Sqlite>>::decode(value)?;
+        Ok(Self::from_str(&s)?)
+    }
+}
+
+impl<'q> sqlx::Encode<'q, sqlx::Sqlite> for VerificationCode {
+    fn encode_by_ref(
+        &self,
+        args: &mut Vec<sqlx::sqlite::SqliteArgumentValue<'q>>,
+    ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {
+        <String as sqlx::Encode<sqlx::Sqlite>>::encode_by_ref(&self.to_string(), args)
+    }
+}

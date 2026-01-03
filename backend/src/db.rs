@@ -1,6 +1,7 @@
 use crate::models::{EmailVerification, Game, Participant};
 use crate::token::{
-    AdminSessionToken, AdminToken, EmailAddress, GameId, ParticipantId, VerificationId, ViewToken,
+    AdminSessionToken, AdminToken, EmailAddress, GameId, ParticipantId, VerificationCode,
+    VerificationId, ViewToken,
 };
 use anyhow::{Context, Result};
 use chrono::{DateTime, Duration, Utc};
@@ -379,7 +380,7 @@ impl Database {
         )
         .bind(verification.id)
         .bind(&verification.email)
-        .bind(&verification.code)
+        .bind(verification.code)
         .bind(&verification.game_name)
         .bind(verification.event_date)
         .bind(verification.created_at)
@@ -479,7 +480,7 @@ impl Database {
     pub async fn update_verification_code(
         &self,
         verification_id: VerificationId,
-        new_code: &str,
+        new_code: VerificationCode,
         new_expires_at: DateTime<Utc>,
     ) -> Result<()> {
         sqlx::query(
