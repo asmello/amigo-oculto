@@ -69,7 +69,7 @@
 		error = '';
 
 		try {
-			const response = await fetch(`/api/games/${gameId}/participants`, {
+			const response = await fetch(`/api/games/${gameId}/participants?admin_token=${adminToken}`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
@@ -110,7 +110,7 @@
 		error = '';
 
 		try {
-			const response = await fetch(`/api/games/${gameId}/draw`, {
+			const response = await fetch(`/api/games/${gameId}/draw?admin_token=${adminToken}`, {
 				method: 'POST'
 			});
 

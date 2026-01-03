@@ -51,7 +51,6 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
         .route("/verifications/request", post(request_verification))
         .route("/verifications/verify", post(verify_code))
         .route("/verifications/resend", post(resend_verification))
-        .route("/games", post(create_game))
         .route("/games/{game_id}/participants", post(add_participant))
         .route("/games/{game_id}/draw", post(draw_game))
         .route("/games/{game_id}/resend-all", post(resend_all_emails))
@@ -127,32 +126,28 @@ pub struct AdminQuery {
     pub admin_token: AdminToken,
 }
 
-// POST /api/games - Create a new game
-pub async fn create_game(
-    State(state): State<Arc<AppState>>,
-    Json(req): Json<CreateGameRequest>,
-) -> Result<Json<CreateGameResponse>, AppError> {
-    let game = Game::new(req.name, req.event_date, req.organizer_email);
-    state.db.create_game(&game).await?;
-
-    Ok(Json(CreateGameResponse {
-        game_id: game.id,
-        admin_token: game.admin_token.to_string(),
-    }))
-}
-
 // POST /api/games/:game_id/participants - Add a participant to a game
 pub async fn add_participant(
     State(state): State<Arc<AppState>>,
     Path(game_id): Path<GameId>,
+    Query(query): Query<AdminQuery>,
     Json(req): Json<AddParticipantRequest>,
 ) -> Result<Json<AddParticipantResponse>, AppError> {
-    // Check if game exists
+    // Verify admin token
     let game = state
         .db
-        .get_game_by_id(game_id)
+        .get_game_by_admin_token(&query.admin_token)
         .await?
-        .ok_or(AppError::NotFound("Jogo não encontrado".to_string()))?;
+        .ok_or(AppError::Unauthorized(
+            "Token de administrador inválido".to_string(),
+        ))?;
+
+    // Verify game_id matches
+    if game.id != game_id {
+        return Err(AppError::Unauthorized(
+            "Token de administrador inválido para este jogo".to_string(),
+        ));
+    }
 
     // Check if game has already been drawn
     if game.drawn {
@@ -183,7 +178,24 @@ pub async fn add_participant(
 pub async fn draw_game(
     State(state): State<Arc<AppState>>,
     Path(game_id): Path<GameId>,
+    Query(query): Query<AdminQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
+    // Verify admin token
+    let admin_game = state
+        .db
+        .get_game_by_admin_token(&query.admin_token)
+        .await?
+        .ok_or(AppError::Unauthorized(
+            "Token de administrador inválido".to_string(),
+        ))?;
+
+    // Verify game_id matches
+    if admin_game.id != game_id {
+        return Err(AppError::Unauthorized(
+            "Token de administrador inválido para este jogo".to_string(),
+        ));
+    }
+
     // Start a transaction to prevent race conditions
     let mut tx = state.db.begin().await?;
 
