@@ -1,30 +1,39 @@
 use crate::db::Database;
 use anyhow::Result;
-use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
+use tokio_util::task::JoinMap;
 
 pub struct Server {
-    tasks: JoinSet<()>,
+    tasks: JoinMap<&'static str, ()>,
 }
 
 impl Server {
     pub fn new(db: &Database, cancel: CancellationToken) -> Result<Self> {
-        let mut tasks = JoinSet::new();
-        tasks.spawn(Self::cleanup_verifications_task(db.clone(), cancel.clone()));
-        tasks.spawn(Self::cleanup_games_task(db.clone(), cancel.clone()));
-        tasks.spawn(Self::cleanup_admin_sessions_task(db.clone(), cancel));
+        let mut tasks = JoinMap::new();
+        tasks.spawn(
+            "cleanup_verifications",
+            Self::cleanup_verifications_task(db.clone(), cancel.clone()),
+        );
+        tasks.spawn(
+            "cleanup_games",
+            Self::cleanup_games_task(db.clone(), cancel.clone()),
+        );
+        tasks.spawn(
+            "cleanup_admin_sessions",
+            Self::cleanup_admin_sessions_task(db.clone(), cancel),
+        );
         Ok(Self { tasks })
     }
 
     /// Waits for all background tasks to complete.
     pub async fn shutdown(mut self) {
-        while let Some(next) = self.tasks.join_next().await {
-            if let Err(err) = next {
-                if err.is_cancelled() {
-                    tracing::debug!("task aborted");
-                    continue;
+        while let Some((name, result)) = self.tasks.join_next().await {
+            match result {
+                Ok(()) => tracing::debug!(task = name, "task stopped"),
+                Err(err) if err.is_cancelled() => {
+                    tracing::debug!(task = name, "task aborted");
                 }
-                std::panic::resume_unwind(err.into_panic())
+                Err(err) => std::panic::resume_unwind(err.into_panic()),
             }
         }
         tracing::info!("all background tasks have stopped");
@@ -50,7 +59,7 @@ impl Server {
                     }
                 }
                 _ = cancel.cancelled() => {
-                    tracing::debug!("cleanup verifications task received shutdown signal");
+                    tracing::trace!("cleanup verifications task received shutdown signal");
                     break;
                 }
             }
@@ -77,7 +86,7 @@ impl Server {
                     }
                 }
                 _ = cancel.cancelled() => {
-                    tracing::debug!("cleanup games task received shutdown signal");
+                    tracing::trace!("cleanup games task received shutdown signal");
                     break;
                 }
             }
@@ -104,7 +113,7 @@ impl Server {
                     }
                 }
                 _ = cancel.cancelled() => {
-                    tracing::debug!("cleanup admin sessions task received shutdown signal");
+                    tracing::trace!("cleanup admin sessions task received shutdown signal");
                     break;
                 }
             }
