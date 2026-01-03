@@ -3,15 +3,17 @@ mod email;
 mod email_templates;
 mod matching;
 mod models;
+mod rate_limiter;
 mod routes;
 mod server;
 mod site_admin_auth;
 mod staging_auth;
 mod token;
 
-use crate::{db::Database, server::Server};
+use crate::{db::Database, rate_limiter::RateLimitState, server::Server};
 use anyhow::Context;
 use email::EmailService;
+use std::net::SocketAddr;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -37,12 +39,13 @@ async fn main() -> anyhow::Result<()> {
         .context("initializing site admin password")?;
 
     let cancel = CancellationToken::new();
-    let server = Server::new(&db, cancel.clone())?;
+    let rate_limiter = std::sync::Arc::new(RateLimitState::new());
+    let server = Server::new(&db, rate_limiter.clone(), cancel.clone())?;
     let email_service = EmailService::from_env()?;
 
     email_service.test().await.context("testing connection")?;
 
-    let app = routes::make(db, email_service);
+    let app = routes::make(db, email_service, rate_limiter);
 
     let port = std::env::var("PORT")
         .unwrap_or_else(|_| "3000".to_string())
@@ -54,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("📝 App available at http://localhost:{}/", port);
 
     // Run the HTTP server with graceful shutdown
-    axum::serve(listener, app)
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
         .with_graceful_shutdown(shutdown_signal(cancel))
         .await?;
 

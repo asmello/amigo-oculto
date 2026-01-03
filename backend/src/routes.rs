@@ -3,6 +3,7 @@ use crate::{
     email::EmailService,
     matching,
     models::*,
+    rate_limiter::RateLimitState,
     site_admin_auth::{self, AuthenticatedAdmin},
     staging_auth::StagingAuthLayer,
     token::{AdminToken, GameId, ParticipantId, VerificationCode, ViewToken},
@@ -18,7 +19,10 @@ use axum::{
 };
 use chrono::{Duration, Utc};
 use serde::Deserialize;
-use std::sync::Arc;
+use std::{
+    net::IpAddr,
+    sync::Arc,
+};
 use tower_http::{
     cors::{self, AllowOrigin, CorsLayer},
     services::{ServeDir, ServeFile},
@@ -29,7 +33,11 @@ use url::Url;
 /// Maximum number of participants allowed per game to prevent abuse
 const MAX_PARTICIPANTS_PER_GAME: u64 = 100;
 
-pub fn make(db: Database, email_service: EmailService) -> Router {
+pub fn make(
+    db: Database,
+    email_service: EmailService,
+    rate_limit_state: Arc<RateLimitState>,
+) -> Router {
     let state = Arc::new(AppState { db, email_service });
 
     // Site admin protected routes (require authentication)
@@ -69,6 +77,10 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
         .route("/site-admin/login", post(site_admin_login))
         // Site admin protected routes
         .nest("/site-admin", site_admin_protected)
+        .layer(middleware::from_fn_with_state(
+            rate_limit_state,
+            rate_limit_middleware,
+        ))
         .with_state(state);
 
     let base_url = std::env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:3000".into());
@@ -120,6 +132,29 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
 pub struct AppState {
     pub db: Database,
     pub email_service: EmailService,
+}
+
+async fn rate_limit_middleware(
+    State(state): State<Arc<RateLimitState>>,
+    req: axum::http::Request<axum::body::Body>,
+    next: axum::middleware::Next,
+) -> impl IntoResponse {
+    let client_ip = req
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|info| info.0.ip())
+        .unwrap_or(IpAddr::from([0, 0, 0, 0]));
+
+    if !state.record_and_check(client_ip).await {
+        tracing::warn!(
+            client_ip = %client_ip,
+            path = %req.uri().path(),
+            "rate limit exceeded"
+        );
+        return (StatusCode::TOO_MANY_REQUESTS, "Too Many Requests").into_response();
+    }
+
+    next.run(req).await
 }
 
 #[derive(Deserialize)]

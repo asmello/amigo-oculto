@@ -1,5 +1,9 @@
-use crate::db::Database;
+use crate::{
+    db::Database,
+    rate_limiter::{RateLimitState, RATE_LIMIT_WINDOW},
+};
 use anyhow::Result;
+use std::sync::Arc;
 use tokio::task::JoinSet;
 use tokio_util::sync::CancellationToken;
 
@@ -8,9 +12,14 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(db: &Database, cancel: CancellationToken) -> Result<Self> {
+    pub fn new(
+        db: &Database,
+        rate_limiter: Arc<RateLimitState>,
+        cancel: CancellationToken,
+    ) -> Result<Self> {
         let mut tasks = JoinSet::new();
-        tasks.spawn(Self::cleanup_task(db.clone(), cancel));
+        tasks.spawn(Self::cleanup_task(db.clone(), cancel.clone()));
+        tasks.spawn(Self::rate_limit_cleanup_task(rate_limiter, cancel));
         Ok(Self { tasks })
     }
 
@@ -73,6 +82,23 @@ impl Server {
                 }
                 _ = cancel.cancelled() => {
                     tracing::debug!("cleanup task received shutdown signal");
+                    break;
+                }
+            }
+        }
+    }
+
+    async fn rate_limit_cleanup_task(rate_limiter: Arc<RateLimitState>, cancel: CancellationToken) {
+        let mut interval = tokio::time::interval(RATE_LIMIT_WINDOW);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    rate_limiter.prune().await;
+                }
+                _ = cancel.cancelled() => {
+                    tracing::debug!("rate limit cleanup task received shutdown signal");
                     break;
                 }
             }
