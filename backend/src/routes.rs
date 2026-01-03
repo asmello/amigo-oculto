@@ -82,7 +82,9 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
     } else {
         None
     };
-    let allowed_origins = std::iter::once(base_origin_header).chain(dev_origin).collect::<Vec<_>>();
+    let allowed_origins = std::iter::once(base_origin_header)
+        .chain(dev_origin)
+        .collect::<Vec<_>>();
 
     let cors = CorsLayer::new()
         .allow_origin(AllowOrigin::list(allowed_origins))
