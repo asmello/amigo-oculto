@@ -10,7 +10,9 @@ pub struct Server {
 impl Server {
     pub fn new(db: &Database, cancel: CancellationToken) -> Result<Self> {
         let mut tasks = JoinSet::new();
-        tasks.spawn(Self::cleanup_task(db.clone(), cancel));
+        tasks.spawn(Self::cleanup_verifications_task(db.clone(), cancel.clone()));
+        tasks.spawn(Self::cleanup_games_task(db.clone(), cancel.clone()));
+        tasks.spawn(Self::cleanup_admin_sessions_task(db.clone(), cancel));
         Ok(Self { tasks })
     }
 
@@ -28,7 +30,7 @@ impl Server {
         tracing::info!("all background tasks have stopped");
     }
 
-    async fn cleanup_task(db: Database, cancel: CancellationToken) {
+    async fn cleanup_verifications_task(db: Database, cancel: CancellationToken) {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(3600)); // 1 hour
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
@@ -46,7 +48,22 @@ impl Server {
                             tracing::error!("failed to cleanup expired verifications: {}", e);
                         }
                     }
+                }
+                _ = cancel.cancelled() => {
+                    tracing::debug!("cleanup verifications task received shutdown signal");
+                    break;
+                }
+            }
+        }
+    }
 
+    async fn cleanup_games_task(db: Database, cancel: CancellationToken) {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(3600)); // 1 hour
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
                     match db.cleanup_old_games().await {
                         Ok(count) if count > 0 => {
                             tracing::info!("cleaned up {} old game(s)", count);
@@ -58,7 +75,22 @@ impl Server {
                             tracing::error!("failed to cleanup old games: {}", e);
                         }
                     }
+                }
+                _ = cancel.cancelled() => {
+                    tracing::debug!("cleanup games task received shutdown signal");
+                    break;
+                }
+            }
+        }
+    }
 
+    async fn cleanup_admin_sessions_task(db: Database, cancel: CancellationToken) {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(3600)); // 1 hour
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
                     match db.cleanup_expired_admin_sessions().await {
                         Ok(count) if count > 0 => {
                             tracing::info!("cleaned up {} expired admin session(s)", count);
@@ -72,7 +104,7 @@ impl Server {
                     }
                 }
                 _ = cancel.cancelled() => {
-                    tracing::debug!("cleanup task received shutdown signal");
+                    tracing::debug!("cleanup admin sessions task received shutdown signal");
                     break;
                 }
             }
