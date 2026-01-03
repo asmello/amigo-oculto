@@ -5,7 +5,7 @@ use crate::{
     models::*,
     site_admin_auth::{self, AuthenticatedAdmin},
     staging_auth::StagingAuthLayer,
-    token::{AdminToken, GameId, ParticipantId, ViewToken},
+    token::{AdminToken, GameId, ParticipantId, VerificationCode, ViewToken},
 };
 use anyhow::Context;
 use axum::{
@@ -641,7 +641,7 @@ pub async fn request_verification(
         .send_verification_code(
             &verification.email,
             &verification.game_name,
-            &verification.code,
+            verification.code,
         )
         .await
     {
@@ -803,23 +803,19 @@ pub async fn resend_verification(
     }
 
     // Generate new code
-    let new_code = {
-        use rand::Rng;
-        let mut rng = rand::rng();
-        format!("{:06}", rng.random_range(0..1000000))
-    };
+    let new_code = VerificationCode::generate();
     let new_expires_at = Utc::now() + Duration::minutes(15);
 
     // Update verification with new code
     state
         .db
-        .update_verification_code(req.verification_id, &new_code, new_expires_at)
+        .update_verification_code(req.verification_id, new_code, new_expires_at)
         .await?;
 
     // Send new verification email
     if let Err(e) = state
         .email_service
-        .send_verification_code(&verification.email, &verification.game_name, &new_code)
+        .send_verification_code(&verification.email, &verification.game_name, new_code)
         .await
     {
         tracing::error!("failed to resend verification email: {}", e);
