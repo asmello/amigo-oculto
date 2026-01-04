@@ -4,7 +4,7 @@ use crate::{
     matching,
     models::*,
     site_admin_auth::{self, AuthenticatedAdmin},
-    staging_auth::StagingAuthLayer,
+    proxy_auth::ProxyAuthLayer,
     token::{AdminToken, GameId, ParticipantId, VerificationCode, ViewToken},
 };
 use anyhow::Context;
@@ -97,10 +97,10 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
     let static_dir = ServeDir::new(&static_base_dir)
         .not_found_service(ServeFile::new(static_base_dir.join("index.html")));
 
-    // Staging protection (enabled if STAGING_SECRET is set)
-    let staging_auth = StagingAuthLayer::from_env();
-    if staging_auth.is_enabled() {
-        tracing::info!("staging authentication enabled (X-Staging-Secret header required)");
+    // Proxy authentication (enabled if PROXY_SECRET is set)
+    let proxy_auth = ProxyAuthLayer::from_env();
+    if proxy_auth.is_enabled() {
+        tracing::info!("proxy authentication enabled (X-Proxy-Secret header required)");
     }
 
     Router::new()
@@ -111,7 +111,7 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
                 format!("static file error: {error}"),
             )
         }))
-        .layer(staging_auth)
+        .layer(proxy_auth)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
 }

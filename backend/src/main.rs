@@ -6,7 +6,7 @@ mod models;
 mod routes;
 mod server;
 mod site_admin_auth;
-mod staging_auth;
+mod proxy_auth;
 mod token;
 
 use crate::{db::Database, server::Server};
