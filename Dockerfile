@@ -81,6 +81,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=be_builder /app/backend/target/release/${BIN_NAME} /app/${BIN_NAME}
 COPY --from=fe_builder /app/frontend/build /app/public
 
+# Copy Litestream binary from official image (0.5.x config format)
+COPY --from=litestream/litestream:0.5 /usr/local/bin/litestream /usr/local/bin/litestream
+
+# Copy Litestream config and startup script
+COPY litestream.yml /etc/litestream.yml
+COPY run.sh /app/run.sh
+RUN chmod +x /app/run.sh
+
 # This is where your Fly volume should mount (or adjust to your fly.toml)
 RUN mkdir -p /app/data #&& chown -R appuser:nogroup /app
 
