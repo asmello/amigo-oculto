@@ -153,6 +153,30 @@ After CI passes, merge with squash: `gh pr merge --squash`
 
 Commits to `main` automatically deploy to Fly.io staging (`amigo-oculto-staging`).
 
+### Production Deployment
+
+Production (`amigo-oculto`) requires manual deployment. The production environment uses Litestream for continuous SQLite backups to Wasabi (S3-compatible object storage).
+
+**Required Fly secrets for production:**
+```bash
+fly secrets set -a amigo-oculto \
+  LITESTREAM_BUCKET=<bucket-name> \
+  LITESTREAM_ENDPOINT=https://s3.eu-west-1.wasabisys.com \
+  LITESTREAM_ACCESS_KEY_ID=<access-key> \
+  LITESTREAM_SECRET_ACCESS_KEY=<secret-key>
+```
+
+**How Litestream works:**
+- `run.sh` wraps the backend process
+- On startup, restores from S3 if local DB is missing (disaster recovery)
+- Continuously replicates WAL changes to S3
+- Safe with Fly's scale-to-zero (unlike LiteFS)
+
+**Deploy to production:**
+```bash
+fly deploy -c fly.production.toml -a amigo-oculto
+```
+
 ### Scheduled Builds
 
 Daily builds run at 7:00 UTC to catch breakages from:
