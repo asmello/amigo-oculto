@@ -37,9 +37,7 @@ impl ProxyAuthConfig {
     /// If PROXY_SECRET is not set or empty, authentication is disabled.
     pub fn from_env() -> Self {
         Self {
-            secret: std::env::var("PROXY_SECRET")
-                .ok()
-                .filter(|s| !s.is_empty()),
+            secret: std::env::var("PROXY_SECRET").ok().filter(|s| !s.is_empty()),
         }
     }
 

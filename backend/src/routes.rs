@@ -3,8 +3,8 @@ use crate::{
     email::EmailService,
     matching,
     models::*,
-    site_admin_auth::{self, AuthenticatedAdmin},
     proxy_auth::ProxyAuthLayer,
+    site_admin_auth::{self, AuthenticatedAdmin},
     token::{AdminToken, GameId, ParticipantId, VerificationCode, ViewToken},
 };
 use anyhow::Context;
