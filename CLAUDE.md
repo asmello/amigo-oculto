@@ -60,6 +60,8 @@ docker build -t amigo-oculto:latest .  # Full production build
 
 **Security Model**: Token-based access (no authentication). Admin tokens for organizers, view tokens for participants. Organizers cannot see matched pairs.
 
+**Proxy Authentication**: Both staging and production deployments require requests to pass through Cloudflare. The `PROXY_SECRET` environment variable enables a middleware that validates the `X-Proxy-Secret` header on all requests. Cloudflare Transform Rules inject this header, blocking direct access to `.fly.dev` domains. Disabled when `PROXY_SECRET` is unset (local development).
+
 ## Database
 
 SQLite database at `./data/amigo_oculto.db` (auto-created). Tables:
@@ -163,8 +165,11 @@ fly secrets set -a amigo-oculto \
   LITESTREAM_BUCKET=<bucket-name> \
   LITESTREAM_ENDPOINT=https://s3.eu-west-1.wasabisys.com \
   LITESTREAM_ACCESS_KEY_ID=<access-key> \
-  LITESTREAM_SECRET_ACCESS_KEY=<secret-key>
+  LITESTREAM_SECRET_ACCESS_KEY=<secret-key> \
+  PROXY_SECRET="$(openssl rand -base64 32)"
 ```
+
+Note: `PROXY_SECRET` must also be configured in a Cloudflare Transform Rule to inject the `X-Proxy-Secret` header for requests to `amigoocultosimples.app`.
 
 **How Litestream works:**
 - `run.sh` wraps the backend process

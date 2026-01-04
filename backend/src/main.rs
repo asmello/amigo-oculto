@@ -3,10 +3,10 @@ mod email;
 mod email_templates;
 mod matching;
 mod models;
+mod proxy_auth;
 mod routes;
 mod server;
 mod site_admin_auth;
-mod staging_auth;
 mod token;
 
 use crate::{db::Database, server::Server};
