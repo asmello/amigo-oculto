@@ -23,7 +23,9 @@ pub struct Database {
 async fn init_db(database_url: &str) -> Result<SqlitePool> {
     let options = SqliteConnectOptions::from_str(database_url)?
         .create_if_missing(true)
-        .foreign_keys(true);
+        .foreign_keys(true)
+        // Allow concurrent writers to wait briefly rather than failing immediately.
+        .busy_timeout(std::time::Duration::from_secs(5));
     let pool = SqlitePool::connect_with(options).await?;
 
     sqlx::raw_sql(
