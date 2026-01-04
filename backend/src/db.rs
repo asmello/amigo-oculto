@@ -25,7 +25,11 @@ async fn init_db(database_url: &str) -> Result<SqlitePool> {
         .create_if_missing(true)
         .foreign_keys(true)
         // Allow concurrent writers to wait briefly rather than failing immediately.
-        .busy_timeout(std::time::Duration::from_secs(5));
+        .busy_timeout(std::time::Duration::from_secs(5))
+        // WAL mode is required by Litestream for replication.
+        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+        // NORMAL synchronous is safe in WAL mode and reduces fsync overhead.
+        .synchronous(sqlx::sqlite::SqliteSynchronous::Normal);
     let pool = SqlitePool::connect_with(options).await?;
 
     sqlx::raw_sql(
