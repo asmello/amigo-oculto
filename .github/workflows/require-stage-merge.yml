@@ -11,11 +11,22 @@ jobs:
     name: require-stage-source
     runs-on: ubuntu-latest
     steps:
-      - name: Verify PR is from stage branch
+      - name: Verify PR is from stage branch in base repo
         run: |
-          if [ "${{ github.head_ref }}" != "stage" ]; then
+          HEAD_REPO="${{ github.event.pull_request.head.repo.full_name }}"
+          BASE_REPO="${{ github.repository }}"
+          HEAD_REF="${{ github.head_ref }}"
+
+          if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            echo "::error::PRs to main must come from the base repository, not a fork"
+            echo "Fork PRs should target the stage branch instead."
+            exit 1
+          fi
+
+          if [ "$HEAD_REF" != "stage" ]; then
             echo "::error::PRs to main must come from the stage branch"
             echo "Merge your changes to stage first, then create a PR from stage to main."
             exit 1
           fi
-          echo "PR source is stage branch - OK"
+
+          echo "PR source is stage branch from base repo - OK"
