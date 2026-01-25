@@ -16,7 +16,7 @@ RUN corepack enable
 # Copy only package files first for caching
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
 
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
 # Now copy the rest and build
@@ -44,9 +44,9 @@ COPY backend/Cargo.toml backend/Cargo.lock ./
 # 2) Dummy main to compile deps only (best cache reuse)
 RUN mkdir -p src && printf "fn main() {}\n" > src/main.rs
 
-# Build deps with caches (requires BuildKit, which Fly uses)
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
+# Build deps with caches (requires BuildKit)
+RUN --mount=type=cache,id=cargo-registry,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=cargo-git,target=/usr/local/cargo/git \
     cargo build --release --locked \
  && rm -rf src
 
@@ -57,8 +57,8 @@ COPY backend/src ./src
 # (Docker COPY preserves mtimes, which can confuse cargo's incremental builds)
 RUN touch src/main.rs
 
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
+RUN --mount=type=cache,id=cargo-registry,target=/usr/local/cargo/registry \
+    --mount=type=cache,id=cargo-git,target=/usr/local/cargo/git \
     cargo build --release --locked
 
 ############################
@@ -89,7 +89,7 @@ COPY litestream.yml /etc/litestream.yml
 COPY run.sh /app/run.sh
 RUN chmod +x /app/run.sh
 
-# This is where your Fly volume should mount (or adjust to your fly.toml)
+# Data directory for SQLite database (mount a volume here)
 RUN mkdir -p /app/data #&& chown -R appuser:nogroup /app
 
 # USER appuser
