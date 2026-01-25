@@ -25,7 +25,10 @@ pub struct EmailConfig {
 impl EmailConfig {
     /// Returns a display string for logging (without credentials)
     fn display(&self) -> String {
-        format!("{}:{} (from: {})", self.smtp_host, self.smtp_port, self.from_address)
+        format!(
+            "{}:{} (from: {})",
+            self.smtp_host, self.smtp_port, self.from_address
+        )
     }
 }
 
@@ -98,11 +101,8 @@ impl EmailService {
     pub async fn test(&self) -> Result<()> {
         tracing::info!(smtp = %self.inner.smtp_display, "testing SMTP connection...");
 
-        match tokio::time::timeout(
-            Duration::from_secs(30),
-            self.inner.mailer.test_connection(),
-        )
-        .await
+        match tokio::time::timeout(Duration::from_secs(30), self.inner.mailer.test_connection())
+            .await
         {
             Ok(Ok(_)) => {
                 tracing::info!(smtp = %self.inner.smtp_display, "SMTP connection test successful");
