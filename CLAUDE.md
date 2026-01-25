@@ -60,8 +60,6 @@ docker build -t amigo-oculto:latest .  # Full production build
 
 **Security Model**: Token-based access (no authentication). Admin tokens for organizers, view tokens for participants. Organizers cannot see matched pairs.
 
-**Proxy Authentication**: Both staging and production deployments require requests to pass through Cloudflare. The `PROXY_SECRET` environment variable enables a middleware that validates the `X-Proxy-Secret` header on all requests. Cloudflare Transform Rules inject this header, blocking direct access to `.fly.dev` domains. Disabled when `PROXY_SECRET` is unset (local development).
-
 ## Database
 
 SQLite database at `./data/amigo_oculto.db` (auto-created). Tables:
@@ -83,10 +81,12 @@ SMTP_USERNAME=your@gmail.com
 SMTP_PASSWORD=app-password
 SMTP_FROM=your@gmail.com
 STATIC_DIR=../frontend/build
+SITE_ADMIN_PASSWORD=your-secure-password  # Used on first run to set admin password
 ```
 
 ## API Routes (prefix: `/api`)
 
+- `GET /health` - Health check endpoint
 - `POST /verifications/request` - Request email verification code
 - `POST /verifications/verify` - Verify code and create game
 - `POST /games` - Direct game creation
@@ -153,33 +153,38 @@ After CI passes, merge with squash: `gh pr merge --squash`
 
 ### Automatic Deployment
 
-Commits to `main` automatically deploy to Fly.io staging (`amigo-oculto-staging`).
+Commits to `main` automatically deploy to Railway staging (`amigo-oculto-staging`).
 
 ### Production Deployment
 
-Production (`amigo-oculto`) requires manual deployment. The production environment uses Litestream for continuous SQLite backups to Wasabi (S3-compatible object storage).
+Production (`amigo-oculto`) requires manual deployment via Railway CLI. The production environment uses Litestream for continuous SQLite backups to Wasabi (S3-compatible object storage).
 
-**Required Fly secrets for production:**
-```bash
-fly secrets set -a amigo-oculto \
-  LITESTREAM_BUCKET=<bucket-name> \
-  LITESTREAM_ENDPOINT=https://s3.eu-west-1.wasabisys.com \
-  LITESTREAM_ACCESS_KEY_ID=<access-key> \
-  LITESTREAM_SECRET_ACCESS_KEY=<secret-key> \
-  PROXY_SECRET="$(openssl rand -base64 32)"
+**Required Railway environment variables for production:**
+```
+DATABASE_URL=sqlite:///app/data/amigo_oculto.db
+BASE_URL=https://amigoocultosimples.app/
+STATIC_DIR=/app/public
+RUST_LOG=debug
+LITESTREAM_BUCKET=<bucket-name>
+LITESTREAM_ENDPOINT=https://s3.eu-west-1.wasabisys.com
+LITESTREAM_ACCESS_KEY_ID=<access-key>
+LITESTREAM_SECRET_ACCESS_KEY=<secret-key>
 ```
 
-Note: `PROXY_SECRET` must also be configured in a Cloudflare Transform Rule to inject the `X-Proxy-Secret` header for requests to `amigoocultosimples.app`.
+**Railway setup:**
+- Services don't get public domains by default (no `.railway.app` URL to protect)
+- Only configure custom domains via Cloudflare
+- Volume mounted at `/app/data` for SQLite persistence
 
 **How Litestream works:**
 - `run.sh` wraps the backend process
 - On startup, restores from S3 if local DB is missing (disaster recovery)
 - Continuously replicates WAL changes to S3
-- Safe with Fly's scale-to-zero (unlike LiteFS)
+- Safe with Railway's scale-to-zero
 
 **Deploy to production:**
 ```bash
-fly deploy -c fly.production.toml -a amigo-oculto
+railway up --service amigo-oculto
 ```
 
 ### Scheduled Builds

@@ -1,6 +1,6 @@
 use crate::email_templates::{html, plain};
 use crate::token::{AdminToken, EmailAddress, GameId, VerificationCode, ViewToken};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{Locale, NaiveDate};
 use lettre::{
     AsyncSmtpTransport, AsyncTransport, Tokio1Executor,
@@ -8,6 +8,7 @@ use lettre::{
     transport::smtp::authentication::Credentials,
 };
 use std::sync::Arc;
+use std::time::Duration;
 use url::Url;
 
 type SmtpTransport = AsyncSmtpTransport<Tokio1Executor>;
@@ -19,6 +20,16 @@ pub struct EmailConfig {
     pub smtp_password: String,
     pub from_address: String,
     pub base_url: Url,
+}
+
+impl EmailConfig {
+    /// Returns a display string for logging (without credentials)
+    fn display(&self) -> String {
+        format!(
+            "{}:{} (from: {})",
+            self.smtp_host, self.smtp_port, self.from_address
+        )
+    }
 }
 
 impl EmailConfig {
@@ -43,6 +54,7 @@ struct EmailServiceInner {
     mailer: SmtpTransport,
     from_address: Mailbox,
     base_url: Url,
+    smtp_display: String,
 }
 
 impl EmailService {
@@ -52,14 +64,25 @@ impl EmailService {
     }
 
     pub fn new(config: EmailConfig) -> Result<Self> {
+        let smtp_display = config.display();
         let creds = Credentials::new(config.smtp_username, config.smtp_password);
 
-        let mailer =
-            // Port 587 requires STARTTLS (upgrade from plain to TLS)
-            SmtpTransport::starttls_relay(&config.smtp_host)?
+        // Use direct TLS for port 465, STARTTLS for other ports (typically 587)
+        let mailer = if config.smtp_port == 465 {
+            SmtpTransport::relay(&config.smtp_host)
+                .context("failed to create TLS SMTP transport")?
                 .port(config.smtp_port)
                 .credentials(creds)
-                .build();
+                .timeout(Some(Duration::from_secs(30)))
+                .build()
+        } else {
+            SmtpTransport::starttls_relay(&config.smtp_host)
+                .context("failed to create STARTTLS SMTP transport")?
+                .port(config.smtp_port)
+                .credentials(creds)
+                .timeout(Some(Duration::from_secs(30)))
+                .build()
+        };
 
         let email_address = config.from_address.parse()?;
         let from_address = Mailbox::new(Some("Amigo Oculto".to_string()), email_address);
@@ -69,19 +92,38 @@ impl EmailService {
                 mailer,
                 from_address,
                 base_url: config.base_url,
+                smtp_display,
             }
             .into(),
         })
     }
 
     pub async fn test(&self) -> Result<()> {
-        tracing::info!("testing SMTP connection...");
-        self.inner.mailer.test_connection().await.map_err(|e| {
-            tracing::error!("SMTP connection test failed: {}", e);
-            anyhow::anyhow!("failed to connect to SMTP server: {}. Please verify your SMTP settings (host, port, username, password) and network connectivity.", e)
-        })?;
-        tracing::info!("SMTP connection test successful");
-        Ok(())
+        tracing::info!(smtp = %self.inner.smtp_display, "testing SMTP connection...");
+
+        match tokio::time::timeout(Duration::from_secs(30), self.inner.mailer.test_connection())
+            .await
+        {
+            Ok(Ok(_)) => {
+                tracing::info!(smtp = %self.inner.smtp_display, "SMTP connection test successful");
+                Ok(())
+            }
+            Ok(Err(e)) => {
+                tracing::error!(smtp = %self.inner.smtp_display, error = %e, "SMTP connection test failed");
+                Err(anyhow::anyhow!(
+                    "SMTP connection to {} failed: {}. Check host, port, credentials, and TLS settings.",
+                    self.inner.smtp_display,
+                    e
+                ))
+            }
+            Err(_) => {
+                tracing::error!(smtp = %self.inner.smtp_display, "SMTP connection test timed out after 30s");
+                Err(anyhow::anyhow!(
+                    "SMTP connection to {} timed out after 30s. The server may be unreachable or the port may require different TLS settings (try port 465 for TLS or 587 for STARTTLS).",
+                    self.inner.smtp_display
+                ))
+            }
+        }
     }
 
     fn reveal_url(&self, view_token: &ViewToken) -> Url {
