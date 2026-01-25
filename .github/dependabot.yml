@@ -1,8 +1,8 @@
 version: 2
 updates:
-  # Rust dependencies
   - package-ecosystem: "cargo"
     directory: "/backend"
+    target-branch: "stage"
     schedule:
       interval: "weekly"
     groups:
@@ -13,9 +13,9 @@ updates:
           - "minor"
           - "patch"
 
-  # Frontend npm dependencies
   - package-ecosystem: "npm"
     directory: "/frontend"
+    target-branch: "stage"
     schedule:
       interval: "weekly"
     groups:
@@ -26,9 +26,9 @@ updates:
           - "minor"
           - "patch"
 
-  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "stage"
     schedule:
       interval: "weekly"
     groups:
