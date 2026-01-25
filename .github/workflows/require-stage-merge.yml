@@ -1,0 +1,19 @@
+name: Require Stage Merge
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  require-stage-source:
+    name: require-stage-source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify PR is from stage branch
+        run: |
+          if [ "${{ github.head_ref }}" != "stage" ]; then
+            echo "::error::PRs to main must come from the stage branch"
+            echo "Merge your changes to stage first, then create a PR from stage to main."
+            exit 1
+          fi
+          echo "PR source is stage branch - OK"

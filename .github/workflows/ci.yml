@@ -5,7 +5,7 @@ permissions:
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, stage]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
