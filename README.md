@@ -1,7 +1,6 @@
 # 🎁 Amigo Oculto - Sistema de Sorteio Online
 
-[![Deploy to Staging](https://github.com/asmello/amigo-oculto/actions/workflows/deploy-staging.yml/badge.svg)](https://github.com/asmello/amigo-oculto/actions/workflows/deploy-staging.yml)
-[![Deploy to Production](https://github.com/asmello/amigo-oculto/actions/workflows/deploy-production.yml/badge.svg)](https://github.com/asmello/amigo-oculto/actions/workflows/deploy-production.yml)
+[![CI](https://github.com/asmello/amigo-oculto/actions/workflows/ci.yml/badge.svg)](https://github.com/asmello/amigo-oculto/actions/workflows/ci.yml)
 
 Sistema completo de Amigo Oculto (Secret Santa) localizado para Português Brasileiro, com backend em Rust e frontend em TypeScript/SvelteKit.
 
