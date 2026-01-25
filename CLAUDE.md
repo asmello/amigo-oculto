@@ -81,6 +81,7 @@ SMTP_USERNAME=your@gmail.com
 SMTP_PASSWORD=app-password
 SMTP_FROM=your@gmail.com
 STATIC_DIR=../frontend/build
+SITE_ADMIN_PASSWORD=your-secure-password  # Used on first run to set admin password
 ```
 
 ## API Routes (prefix: `/api`)
