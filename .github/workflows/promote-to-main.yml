@@ -1,0 +1,52 @@
+name: Promote Stage to Main
+
+on:
+  schedule:
+    # Weekly on Mondays at 9:00 UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  create-promotion-pr:
+    name: Create promotion PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Check if stage is ahead of main
+        id: check
+        run: |
+          git fetch origin main stage
+          COMMITS_AHEAD=$(git rev-list --count origin/main..origin/stage)
+          echo "commits_ahead=$COMMITS_AHEAD" >> $GITHUB_OUTPUT
+          if [ "$COMMITS_AHEAD" -eq 0 ]; then
+            echo "Stage is not ahead of main, skipping PR creation"
+          else
+            echo "Stage is $COMMITS_AHEAD commit(s) ahead of main"
+          fi
+
+      - name: Create Pull Request
+        if: steps.check.outputs.commits_ahead != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if a PR already exists
+          EXISTING_PR=$(gh pr list --base main --head stage --json number --jq '.[0].number')
+          if [ -n "$EXISTING_PR" ]; then
+            echo "PR #$EXISTING_PR already exists for stage -> main"
+            exit 0
+          fi
+
+          # Create the PR
+          gh pr create \
+            --base main \
+            --head stage \
+            --title "chore: promote stage to main" \
+            --body "Automated PR to promote changes from stage to main.
+
+          This PR was created automatically by the weekly promotion workflow."
