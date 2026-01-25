@@ -2,11 +2,19 @@
 
 ## Branch Protection
 
-A branch `main` está protegida - push direto não é permitido. Todas as mudanças devem passar por pull requests.
+As branches `main` e `stage` estão protegidas - push direto não é permitido. Todas as mudanças devem passar por pull requests.
+
+## Workflow
+
+1. Crie uma feature branch a partir de `stage`
+2. Abra uma PR para `stage`
+3. Após merge, as mudanças são deployadas automaticamente para staging
+4. Periodicamente, `stage` é promovida para `main` via PR
+5. Merge para `main` dispara deploy para produção
 
 ## CI Pipeline
 
-Toda PR para `main` executa automaticamente os seguintes checks:
+Toda PR para `main` ou `stage` executa automaticamente os seguintes checks:
 
 ### Backend (Rust)
 
@@ -27,34 +35,21 @@ A PR só pode ser mergeada após todos os checks passarem.
 
 ## Deploy
 
-### Staging
+O deploy é gerenciado pela integração nativa do Railway com GitHub:
 
-Commits na branch `main` disparam automaticamente:
+- **Staging**: Commits na branch `stage` são automaticamente deployados
+- **Production**: Commits na branch `main` são automaticamente deployados
 
-1. Re-execução de todos os checks de CI
-2. Deploy para Fly.io (app: `amigo-oculto-staging`)
-
-### Production
-
-Publicar uma release no GitHub dispara deploy para produção.
+### Deploy Manual (Railway CLI)
 
 ```bash
-gh release create v1.0.0 --generate-notes
-```
-
-### Secrets
-
-Os deploys usam o secret `FLY_DEPLOY_TOKEN` configurado no GitHub, com environments separados para `staging` e `production`.
-
-### Deploy Manual
-
-```bash
-flyctl deploy --remote-only
+railway up --service amigo-oculto-staging  # Staging
+railway up --service amigo-oculto          # Production
 ```
 
 ## Dependabot
 
-Atualizações de dependências são verificadas semanalmente:
+Atualizações de dependências são verificadas semanalmente e direcionadas para a branch `stage`:
 
 - **Cargo** - Dependências Rust
 - **npm** - Dependências frontend

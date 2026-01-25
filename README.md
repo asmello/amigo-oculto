@@ -269,9 +269,11 @@ BASE_URL=https://amigo.seudominio.com
 docker-compose up -d
 ```
 
-### Serviços Cloud (Fly.io)
+### Serviços Cloud (Railway)
 
-Este projeto está configurado para deploy no [Fly.io](https://fly.io). Commits na branch `main` são automaticamente deployados para staging via GitHub Actions.
+Este projeto está configurado para deploy no [Railway](https://railway.app):
+- Branch `stage` é automaticamente deployada para staging
+- Branch `main` é automaticamente deployada para produção
 
 Veja [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes sobre o pipeline de CI/CD.
 
