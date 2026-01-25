@@ -3,7 +3,6 @@ use crate::{
     email::EmailService,
     matching,
     models::*,
-    proxy_auth::ProxyAuthLayer,
     site_admin_auth::{self, AuthenticatedAdmin},
     token::{AdminToken, GameId, ParticipantId, VerificationCode, ViewToken},
 };
@@ -48,6 +47,7 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
         .with_state(state.clone());
 
     let api_routes = Router::new()
+        .route("/health", get(health_check))
         .route("/verifications/request", post(request_verification))
         .route("/verifications/verify", post(verify_code))
         .route("/verifications/resend", post(resend_verification))
@@ -97,12 +97,6 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
     let static_dir = ServeDir::new(&static_base_dir)
         .not_found_service(ServeFile::new(static_base_dir.join("index.html")));
 
-    // Proxy authentication (enabled if PROXY_SECRET is set)
-    let proxy_auth = ProxyAuthLayer::from_env();
-    if proxy_auth.is_enabled() {
-        tracing::info!("proxy authentication enabled (X-Proxy-Secret header required)");
-    }
-
     Router::new()
         .nest("/api", api_routes)
         .fallback_service(get_service(static_dir).handle_error(|error| async move {
@@ -111,7 +105,6 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
                 format!("static file error: {error}"),
             )
         }))
-        .layer(proxy_auth)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
 }
@@ -119,6 +112,11 @@ pub fn make(db: Database, email_service: EmailService) -> Router {
 pub struct AppState {
     pub db: Database,
     pub email_service: EmailService,
+}
+
+/// GET /api/health - Health check endpoint for Railway
+async fn health_check() -> StatusCode {
+    StatusCode::OK
 }
 
 #[derive(Deserialize)]
