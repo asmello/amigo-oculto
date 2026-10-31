@@ -43,9 +43,17 @@ re-executes `run.sh` as `appuser` (no `RAILWAY_RUN_UID` needed).
 `run.sh` restores the latest Litestream replica automatically at boot (`-if-db-not-exists
 -if-replica-exists`). Deliberate restore of an older point:
 
+Verified drill (any Docker host, the app image carries Litestream and `/etc/litestream.yml`;
+the five `LITESTREAM_*` values are the service's variables, pass them from memory, never from a
+file):
+
 ```sh
-litestream restore -o /tmp/restore.db s3://<bucket>/v2    # pick -timestamp as needed
-# stop the service, replace /app/data/amigo_oculto.db, start the service
+docker run --rm -v "$PWD/restore:/out" \
+  -e LITESTREAM_BUCKET -e LITESTREAM_PATH=v2 -e LITESTREAM_ENDPOINT \
+  -e LITESTREAM_ACCESS_KEY_ID -e LITESTREAM_SECRET_ACCESS_KEY \
+  --entrypoint litestream <image> restore -o /out/restored.db /app/data/amigo_oculto_v2.db
+# add -timestamp 2026-12-20T00:00:00Z for point-in-time; inspect with sqlite3 restore/restored.db
+# to roll production back: stop the service, replace /app/data/amigo_oculto_v2.db on the volume, start it
 ```
 
 Railway snapshots restore from the volume's Backups tab (same project/environment only).
