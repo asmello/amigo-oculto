@@ -1,0 +1,10 @@
+{% extends "email/_layout.html" %}
+{% import "email/_macros.html" as m %}
+{% block subject %}Acesso ao painel{% endblock %}
+{% block preheader %}Link de acesso válido por {{ minutes }} minutos.{% endblock %}
+{% block body %}
+<p style="margin:0 0 14px 0;">Link de acesso ao painel. Vale por {{ minutes }} minutos e só uma vez.</p>
+{{ m::button(login_url, "Entrar no painel") }}
+{{ m::fallback(login_url) }}
+<p style="margin:0;font-size:14px;color:#5F6F67;">Se você não pediu isso, ignore este email.</p>
+{% endblock %}

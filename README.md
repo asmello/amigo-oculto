@@ -1,335 +1,110 @@
-# 🎁 Amigo Oculto - Sistema de Sorteio Online
+# Amigo Oculto Simples
 
-[![Deploy to Staging](https://github.com/asmello/amigo-oculto/actions/workflows/deploy-staging.yml/badge.svg)](https://github.com/asmello/amigo-oculto/actions/workflows/deploy-staging.yml)
-[![Deploy to Production](https://github.com/asmello/amigo-oculto/actions/workflows/deploy-production.yml/badge.svg)](https://github.com/asmello/amigo-oculto/actions/workflows/deploy-production.yml)
+Sorteio de amigo oculto para a família: você cria o evento, adiciona os participantes, e cada um
+recebe por email um link secreto para descobrir quem tirou — sem cadastro, sem aplicativo,
+e sem que o organizador veja o resultado.
 
-Sistema completo de Amigo Oculto (Secret Santa) localizado para Português Brasileiro, com backend em Rust e frontend em TypeScript/SvelteKit.
+A single Rust service, server-rendered HTML, SQLite on a volume. No Node, no SPA, no build step
+beyond `cargo`. UI in Brazilian Portuguese.
 
-> **💡 Nota:** Este projeto foi desenvolvido com a assistência de [Claude Code](https://claude.ai/code), um assistente de programação baseado em IA.
+## Features
 
-## 🌟 Funcionalidades
+- **Create with email verification** — 6-digit code, rate limited per email and IP.
+- **Participants** — add one by one, paste a list (`Nome, email` / `Nome <email>`), edit, remove.
+- **Exclusions** — symmetric pairs ("casais can't draw each other"); infeasible combinations are refused.
+- **Draw** — single-cycle matching when possible, derangement fallback; every reveal link is a
+  256-bit secret stored only as a SHA-256 hash.
+- **Redraw semantics** — any post-draw change to participants or exclusions triggers a full redraw:
+  everyone gets a new link and the old ones die. Nothing is ever patched in.
+- **Outbox email** — invitations, welcome, resend, recovery and admin links queue in the database;
+  a background worker delivers with exponential backoff; permanent vs transient failures from SMTP
+  are classified; per-participant delivery status on the organizer page.
+- **Reveal on POST** — opening the email or the page never counts; only pressing *Revelar* does.
+- **Wishlist hints** — written on the reveal page, visible only to whoever drew that person.
+- **Self-service link recovery** ("Perdi meu link") — never reveals whether an email is known.
+- **Organizer access** — magic-link login to a cookie session; no passwords anywhere.
+- **Minimal admin** — magic link restricted to configured emails; lists games, never matches or tokens.
+- **Budget, organizer message, .ics calendar, pt-BR dates and money.**
+- **Privacy by construction** — tokens hashed at rest, secrets redacted from logs and traces,
+  security headers (CSP, HSTS, frame-deny), cross-site POST rejection, sliding-window rate limits,
+  90-day retention after the event date.
 
-- ✅ Criar jogos de Amigo Oculto
-- ✅ Adicionar participantes com nome e email
-- ✅ Sorteio automático (ninguém tira a si mesmo)
-- ✅ Envio de emails automático para cada participante
-- ✅ Links únicos para visualizar quem cada pessoa tirou
-- ✅ Dashboard do organizador para acompanhar quem já visualizou
-- ✅ Interface responsiva para mobile
-- ✅ Totalmente em Português Brasileiro
+## Stack
 
-## 🏗️ Arquitetura
+| Piece | Choice |
+| --- | --- |
+| Language | Rust, edition 2024, MSRV 1.90, one crate |
+| Web | axum 0.8, askama 0.16 templates (`templates/`), askama_web for typed responses |
+| Database | SQLite via sqlx 0.8, `sqlx::migrate!` (WAL; Litestream-replicated) |
+| Mail | lettre 0.11 over SMTP (rustls), multipart alternative, Reply-To organizer |
+| Frontend | hand-written CSS (`static/app.css`), one small vanilla JS file, self-hosted Fraunces subset |
 
-### Backend (Rust)
-- **Framework**: Axum (rápido e moderno)
-- **Banco de Dados**: SQLite (sem configuração necessária)
-- **Email**: Lettre (suporte SMTP)
-- **IDs**: ULIDs (ordenáveis e únicos)
+Static assets and email templates are embedded in the binary (`include_bytes!`, askama codegen),
+so the image ships a single executable plus Litestream.
 
-### Frontend (TypeScript)
-- **Framework**: SvelteKit (simples e eficiente)
-- **Styling**: TailwindCSS
-- **Build**: Vite
-- **Output**: Static site (SPA)
+## Development
 
-## 📋 Pré-requisitos
-
-### Para desenvolvimento local:
-- Rust 1.85+ (`cargo --version`)
-- Node.js 20+ (`node --version`)
-- Conta de email SMTP (Gmail, etc.)
-
-### Para produção com Docker:
-- Docker e Docker Compose
-
-## 🚀 Instalação e Execução
-
-### Opção 1: Docker (Recomendado)
-
-1. **Clone o repositório**
-```bash
-git clone <seu-repo>
-cd amigo-oculto
+```sh
+cp .env.example .env   # MAIL_TRANSPORT=log by default; mails print to stdout
+cargo run              # http://localhost:3000
 ```
 
-2. **Configure as variáveis de ambiente**
-```bash
-cp backend/.env.example backend/.env
+The SQLite file defaults to `./dev.db`; migrations run on boot.
+
+### Tests
+
+```sh
+cargo fmt --all --check
+cargo clippy --all-targets --locked -- -D warnings
+cargo test
 ```
 
-Edite `backend/.env` com suas configurações:
-```env
-DATABASE_URL=sqlite:///app/data/amigo_oculto.db
-PORT=3000
-BASE_URL=http://localhost:3000
+Integration tests (`tests/`) run the real router against an in-memory database with a capturing
+mailer: full organizer and participant flows, draw/redraw semantics, reveal semantics, recovery,
+admin, rate limits and the outbox worker retry/backoff paths.
 
-# Gmail example (use App Password, não a senha normal)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=seu-email@gmail.com
-SMTP_PASSWORD=sua-senha-de-app
-SMTP_FROM=noreply@amigooculto.app
-```
+## Configuration
 
-3. **Build do frontend**
-```bash
-cd frontend
-npm install
-npm run build
-cd ..
-```
+Environment variables (all optional except `BASE_URL` in production):
 
-4. **Inicie os serviços**
-```bash
-docker-compose up -d
-```
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `PORT` | `3000` | HTTP listen port (Railway injects this) |
+| `BASE_URL` | — | Public origin; used in links, emails and the CSRF origin check |
+| `DATABASE_URL` | `sqlite:///app/data/amigo_oculto_v2.db` | SQLite path (new name: a volume still holding the v1 file starts fresh) |
+| `LITESTREAM_BUCKET/PATH/ENDPOINT/ACCESS_KEY_ID/SECRET_ACCESS_KEY` | — | off-provider replication; `LITESTREAM_PATH` is the bucket prefix (prod `v2`), mandatory with the bucket |
+| `MAIL_TRANSPORT` | `smtp` if `SMTP_HOST` is set, else `log` | `log` prints emails instead of sending |
+| `SMTP_HOST/PORT/USERNAME/PASSWORD/FROM` | — | SMTP relay (port 465 = implicit TLS, others STARTTLS) |
+| `ADMIN_EMAILS` | — | comma-separated emails allowed to log into `/admin` |
+| `TRUST_PROXY` | `true` | trust `X-Forwarded-For`/`CF-Connecting-IP` for rate limits |
+| `GAME_RETENTION_DAYS` | `90` | days after the event before a game is deleted |
+| `RUST_LOG` | `info` | request tracing redacts secret path segments |
 
-5. **Acesse a aplicação**
-```
-http://localhost:3000
-```
+## Deployment (Railway)
 
-### Opção 2: Desenvolvimento Local
+- The repo deploys as-is from `main`: `railway.toml` selects the Dockerfile, whose `CMD` is
+  `run.sh` — the single source of truth. Do not override the start command in the dashboard.
+- `run.sh` restores the database from Wasabi via Litestream when the volume is empty, then runs the
+  app under `litestream replicate -exec`, so every write is replicated off-provider (~10 s).
+- Railway native volume backups (daily) are enabled on the volume as a second line of defence.
+- Health: `/healthz`. Logs run at `info`; secret path segments (`/revelar/…`, `/entrar/…`) are
+  rewritten to `[token]` before logging.
+- Restore, backups, DNS, incident procedures: see [RUNBOOK.md](RUNBOOK.md).
 
-1. **Configure o backend**
-```bash
-cd backend
-cp .env.example .env
-# Edite o .env com suas configurações
-```
-
-2. **Inicie o backend**
-```bash
-cargo run
-```
-
-3. **Em outro terminal, configure o frontend**
-```bash
-cd frontend
-npm install
-```
-
-4. **Inicie o frontend em modo dev**
-```bash
-npm run dev
-```
-
-5. **Acesse**
-- Frontend: http://localhost:5173
-- API: http://localhost:3000/api
-
-## 📧 Configurando Email (Gmail)
-
-### 1. Criar App Password no Gmail
-
-1. Acesse [myaccount.google.com](https://myaccount.google.com)
-2. Vá em "Segurança"
-3. Ative "Verificação em duas etapas" (se não estiver ativo)
-4. Procure por "Senhas de app"
-5. Crie uma senha de app para "Mail"
-6. Use essa senha no campo `SMTP_PASSWORD` do `.env`
-
-### 2. Configurações no .env
-
-```env
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=seu-email@gmail.com
-SMTP_PASSWORD=senha-de-app-gerada
-SMTP_FROM=noreply@amigooculto.app  # Pode usar qualquer email aqui
-```
-
-### 3. Outros provedores de email
-
-Para outros provedores (Outlook, Yahoo, provedor próprio), consulte a documentação do provedor para obter as configurações SMTP.
-
-## 🎮 Como Usar
-
-### Para o Organizador:
-
-1. **Acesse a página inicial** e clique em "Criar Novo Jogo"
-2. **Preencha os dados**: Nome do jogo, data do evento, seu email
-3. **Adicione os participantes** um por um (nome + email)
-4. **Revise a lista** de participantes
-5. **Clique em "Realizar Sorteio"** - Os emails serão enviados automaticamente!
-6. **Guarde o link** que você receber para acompanhar o status
-
-### Para os Participantes:
-
-1. **Receba o email** com o título "🎁 Amigo Oculto: [Nome do Jogo]"
-2. **Clique no botão** "Ver Meu Amigo Oculto"
-3. **Descubra quem você tirou!**
-4. **Guarde o email** para consultar novamente se necessário
-
-## 🛠️ Estrutura do Projeto
+## Repository layout
 
 ```
-amigo-oculto/
-├── backend/                 # Rust backend
-│   ├── src/
-│   │   ├── main.rs         # Entrada do servidor
-│   │   ├── db.rs           # Operações do banco de dados
-│   │   ├── email.rs        # Serviço de email
-│   │   ├── matching.rs     # Lógica de sorteio
-│   │   ├── models.rs       # Modelos de dados
-│   │   └── routes.rs       # Endpoints da API
-│   ├── Cargo.toml          # Dependências Rust
-│   ├── Dockerfile
-│   └── .env.example
-├── frontend/                # SvelteKit frontend
-│   ├── src/
-│   │   ├── routes/         # Páginas
-│   │   ├── lib/            # Bibliotecas compartilhadas
-│   │   ├── app.html        # Template HTML base
-│   │   └── app.css         # Estilos globais
-│   ├── static/             # Arquivos estáticos
-│   ├── package.json
-│   └── svelte.config.js
-├── data/                    # Banco de dados SQLite (criado automaticamente)
-├── docker-compose.yml
-└── README.md
+src/
+  main.rs        binary: config, pool, workers, graceful shutdown
+  web/           router, middleware (headers, CSRF, rate limit), handlers, sessions
+  repo/          SQL queries (one module per table)
+  mail/          SMTP transports, email composition, outbox worker, .ics
+  matching.rs    draw algorithm (Hamiltonian cycle w/ fallback)
+templates/       askama pages + transactional emails (HTML and plain text)
+static/          app.css, app.js, favicon, Fraunces subset (embedded)
+migrations/      SQL migrations (applied on boot)
+tests/           integration tests (in-memory SQLite + capturing mailer)
 ```
 
-## 🔧 API Endpoints
-
-### Criar Jogo
-```http
-POST /api/games
-Content-Type: application/json
-
-{
-  "name": "Natal da Família",
-  "event_date": "25 de Dezembro",
-  "organizer_email": "organizador@email.com"
-}
-```
-
-### Adicionar Participante
-```http
-POST /api/games/:game_id/participants
-Content-Type: application/json
-
-{
-  "name": "João Silva",
-  "email": "joao@email.com"
-}
-```
-
-### Realizar Sorteio
-```http
-POST /api/games/:game_id/draw
-```
-
-### Ver Status (Organizador)
-```http
-GET /api/games/:game_id?admin_token=xxx
-```
-
-### Ver Seu Amigo Oculto
-```http
-GET /api/reveal/:view_token
-```
-
-## 🚢 Deploy em Produção
-
-### Raspberry Pi
-
-1. **Instale Docker**
-```bash
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
-```
-
-2. **Clone e configure**
-```bash
-git clone <seu-repo> amigo-oculto
-cd amigo-oculto
-cp backend/.env.example backend/.env
-nano backend/.env  # Configure suas variáveis
-```
-
-3. **Build frontend**
-```bash
-cd frontend
-npm install
-npm run build
-cd ..
-```
-
-4. **Configure o BASE_URL** no `.env` com seu IP/domínio:
-```env
-BASE_URL=http://192.168.1.100:3000
-# ou
-BASE_URL=https://amigo.seudominio.com
-```
-
-5. **Inicie**
-```bash
-docker-compose up -d
-```
-
-### Serviços Cloud (Railway)
-
-Este projeto está configurado para deploy no [Railway](https://railway.app):
-- Branch `stage` é automaticamente deployada para staging
-- Branch `main` é automaticamente deployada para produção
-
-Veja [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes sobre o pipeline de CI/CD.
-
-## 🔒 Segurança
-
-- ✅ Tokens únicos gerados com criptografia segura (impossível adivinhar)
-- ✅ IDs ordenáveis e únicos baseados em ULID
-- ✅ Sem autenticação necessária (acesso via token)
-- ✅ Organizador não consegue ver os pares sorteados
-- ✅ Cada participante só vê seu próprio par
-- ✅ Banco de dados SQLite local (fácil de fazer backup)
-
-## 🐛 Troubleshooting
-
-### Emails não estão sendo enviados
-
-1. Verifique se o `SMTP_PASSWORD` está correto (use App Password do Gmail)
-2. Verifique se a porta `587` está aberta no firewall
-3. Veja os logs: `docker-compose logs -f backend`
-4. Teste com outro provedor SMTP
-
-### Erro ao conectar no banco de dados
-
-1. Verifique se a pasta `data/` existe
-2. Verifique permissões: `chmod 755 data/`
-3. Delete o DB e reinicie: `rm data/amigo_oculto.db && docker-compose restart`
-
-### Frontend não carrega
-
-1. Certifique-se que você executou `npm run build` no frontend
-2. Verifique se a pasta `frontend/build` existe
-3. Reinicie o backend: `docker-compose restart`
-
-## 📝 Licença
-
-Este projeto é open source e está disponível sob a licença MIT.
-
-## 🤝 Contribuindo
-
-Contribuições são bem-vindas! Sinta-se à vontade para abrir issues ou pull requests.
-
-## 💡 Futuras Melhorias
-
-- [ ] Lista de desejos por participante
-- [ ] Limite de orçamento sugerido
-- [ ] Exclusão de pares (casais não tirarem um ao outro)
-- [ ] Integração com WhatsApp
-- [ ] Múltiplos organizadores
-- [ ] Jogos recorrentes (salvar lista de participantes)
-- [ ] Temas personalizados
-- [ ] Export/backup dos jogos
-
-## 📞 Suporte
-
-Para dúvidas ou problemas, abra uma issue no GitHub ou entre em contato.
-
----
-
-Feito com ❤️ para facilitar o Amigo Oculto da sua família!
+MIT licensed. Fonts: [Fraunces](https://github.com/undercasetype/Fraunces) (OFL 1.1),
+icons derived from [Lucide](https://lucide.dev) (ISC).

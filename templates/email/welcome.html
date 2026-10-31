@@ -1,0 +1,11 @@
+{% extends "email/_layout.html" %}
+{% import "email/_macros.html" as m %}
+{% block subject %}Seu sorteio foi criado{% endblock %}
+{% block preheader %}Guarde este email: ele dá acesso à página do organizador.{% endblock %}
+{% block body %}
+<p style="margin:0 0 14px 0;">Olá, {{ organizer_name }}!</p>
+<p style="margin:0 0 14px 0;">O sorteio <strong>{{ game_name }}</strong> ({{ event_date }}) foi criado. Pela página do organizador você adiciona os participantes, define quem não pode tirar quem e faz o sorteio.</p>
+{{ m::button(login_url, "Abrir a página do organizador") }}
+{{ m::fallback(login_url) }}
+<p style="margin:0;font-size:14px;color:#5F6F67;">Guarde este email. O link vale por 30 dias e serve para entrar de novo em outro aparelho; depois disso, peça um novo em “Perdi meu link”.</p>
+{% endblock %}

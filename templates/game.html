@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}{{ game.name }} — Amigo Oculto Simples{% endblock %}
+{% block robots %}noindex{% endblock %}
+{% block nav %}<a href="/meus" class="keep">Meus sorteios</a>{% endblock %}
+{% block content %}
+<section class="hero compact">
+  {% if game.is_drawn() %}
+  <span class="chip chip-ok"><svg class="i sm"><use href="#i-check"/></svg> Sorteado{% if let Some(t) = game.drawn_at %} em {{ t|ts_day_month }}{% endif %}{% if game.draw_round > 1 %} · {{ game.draw_round }}º sorteio{% endif %}</span>
+  {% else %}
+  <span class="chip chip-wait"><span class="dot"></span> Aguardando sorteio</span>
+  {% endif %}
+  <h1 style="margin-top:12px">{{ game.name }}</h1>
+  <div class="meta">
+    <span><svg class="i sm"><use href="#i-calendar"/></svg> {{ game.event_date|date_long }}</span>
+    {% if let Some(b) = game.budget_cents %}<span><svg class="i sm"><use href="#i-tag"/></svg> até {{ b|money }}</span>{% endif %}
+    <span><svg class="i sm"><use href="#i-user"/></svg> Organizado por {{ game.organizer_name|first_name }}</span>
+    <a href="/jogo/{{ game.id }}/editar" class="small push">Editar evento</a>
+  </div>
+</section>
+
+{% if game.is_drawn() %}
+<div class="stats compact">
+  <div class="stat"><div class="n">{{ rows.len() }}</div><div class="l">participantes</div></div>
+  <div class="stat"><div class="n">{{ delivered }}<span class="of">/{{ rows.len() }}</span></div><div class="l">convites entregues</div></div>
+  <div class="stat"><div class="n">{{ revealed }}<span class="of">/{{ rows.len() }}</span></div><div class="l">já revelaram</div></div>
+</div>
+{% if failed > 0 %}
+<div class="banner warn" style="margin-top:14px">
+  <svg class="i"><use href="#i-alert"/></svg>
+  <div>
+    {% if failed == 1 %}O convite de {% for r in rows %}{% if r.is_failed() %}<strong>{{ r.p.name }}</strong>{% endif %}{% endfor %} foi rejeitado pelo servidor de email.{% else %}{{ failed }} convites foram rejeitados pelo servidor de email ({% for r in rows %}{% if r.is_failed() %}<strong>{{ r.p.name }}</strong>{% if !loop.last %}, {% endif %}{% endif %}{% endfor %}).{% endif %}
+    Confira o endereço e tente de novo — o link continua válido.
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+<div class="card" style="margin-top:18px">
+  <div class="card-head">
+    <h2>Participantes <span class="count">· {{ rows.len() }}</span></h2>
+    {% if game.is_drawn() %}
+      {% if pending_reveal > 0 %}
+      <form method="post" action="/jogo/{{ game.id }}/reenviar-pendentes" class="inline" data-confirm="Reenviar o convite para as {{ pending_reveal }} pessoas que ainda não revelaram? Os links anteriores delas deixam de valer.">
+        <button type="submit" class="btn btn-ghost btn-sm"><svg class="i sm"><use href="#i-send"/></svg> Reenviar para quem não abriu</button>
+      </form>
+      {% endif %}
+    {% else %}
+      <span class="tiny muted">mínimo {{ min_participants }} para sortear</span>
+    {% endif %}
+  </div>
+
+  {% if rows.is_empty() %}
+  <p class="muted small" style="margin-bottom:16px">Ninguém ainda. Adicione as pessoas abaixo — você também pode participar.</p>
+  {% else %}
+  <ul class="list{% if game.is_drawn() %} statuses{% endif %}">
+    {% for r in rows %}
+    <li>
+      <div class="avatar {{ r.p.name|avatar_class }}" aria-hidden="true">{{ r.p.name|initials }}</div>
+      <div class="who">
+        <div class="name">{{ r.p.name }}{% if r.is_organizer %}<span class="you">você</span>{% endif %}</div>
+        <div class="email">{{ r.p.email }}</div>
+      </div>
+      {% if game.is_drawn() %}
+      <div class="status-col">
+        {% if r.is_failed() %}
+          <span class="chip chip-fail" title="{{ r.error.as_deref().unwrap_or("") }}"><span class="dot"></span> Email rejeitado</span>
+        {% else if r.is_queued() %}
+          <span class="chip chip-wait"><svg class="i sm"><use href="#i-clock"/></svg> Enviando convite</span>
+        {% else %}
+          <span class="chip chip-ok"><svg class="i sm"><use href="#i-check"/></svg> Convite enviado</span>
+        {% endif %}
+        {% if r.p.has_revealed() %}
+          <span class="chip chip-accent"><svg class="i sm"><use href="#i-eye"/></svg> Revelou</span>
+        {% else %}
+          <span class="chip chip-wait"><svg class="i sm"><use href="#i-eye-off"/></svg> Ainda não abriu</span>
+        {% endif %}
+      </div>
+      {% endif %}
+      <div class="li-actions">
+        {% if game.is_drawn() %}
+        <form method="post" action="/jogo/{{ game.id }}/participantes/{{ r.p.id }}/reenviar" class="inline">
+          <button type="submit" class="iconbtn" title="Reenviar convite para {{ r.p.name }}" aria-label="Reenviar convite para {{ r.p.name }}"><svg class="i"><use href="#i-send"/></svg></button>
+        </form>
+        {% endif %}
+        <button type="button" class="iconbtn{% if r.p.has_revealed() %} ghosted{% endif %}" title="Editar {{ r.p.name }}" aria-label="Editar {{ r.p.name }}" data-edit-participant data-id="{{ r.p.id }}" data-name="{{ r.p.name }}" data-email="{{ r.p.email }}"{% if r.p.has_revealed() %} disabled{% endif %}><svg class="i"><use href="#i-pencil"/></svg></button>
+        <form method="post" action="/jogo/{{ game.id }}/participantes/{{ r.p.id }}/remover" class="inline" data-confirm="Remover {{ r.p.name }} do sorteio?{% if game.is_drawn() %} O sorteio será refeito e todos recebem um novo link.{% endif %}">
+          <button type="submit" class="iconbtn danger" title="Remover {{ r.p.name }}" aria-label="Remover {{ r.p.name }}"><svg class="i"><use href="#i-trash"/></svg></button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if game.is_drawn() %}
+  <p class="tiny muted" style="margin-top:12px">“Revelou” marca quem clicou em <em>Revelar</em> na página do link — abrir o email não conta. Ícones: reenviar convite · editar nome/email (só até a pessoa revelar) · remover.</p>
+  {% endif %}
+
+  {% if rows.len() < max_participants %}
+  <details class="disclosure" style="margin-top:18px"{% if !game.is_drawn() %} open{% endif %}>
+    <summary><svg class="i sm"><use href="#i-plus"/></svg> Adicionar participante{% if game.is_drawn() %} <span class="muted">(refaz o sorteio)</span>{% endif %}</summary>
+    <div class="stack" style="margin-top:12px">
+      <form method="post" action="/jogo/{{ game.id }}/participantes" class="row-3" novalidate{% if game.is_drawn() %} data-confirm="Adicionar esta pessoa refaz o sorteio: todos recebem um novo link. Continuar?"{% endif %}>
+        <div class="field"><label for="p-name">Nome</label><input class="input" id="p-name" name="name" placeholder="Helena Prado" maxlength="80" required autocomplete="off"></div>
+        <div class="field"><label for="p-email">Email</label><input class="input" id="p-email" name="email" type="email" placeholder="helena@exemplo.com" required autocomplete="off"></div>
+        <button type="submit" class="btn btn-secondary btn-block-sm"><svg class="i"><use href="#i-plus"/></svg> Adicionar</button>
+      </form>
+      <details class="disclosure">
+        <summary><svg class="i sm"><use href="#i-clipboard"/></svg> Colar uma lista de pessoas</summary>
+        <form method="post" action="/jogo/{{ game.id }}/participantes/lote" class="stack" style="margin-top:12px"{% if game.is_drawn() %} data-confirm="Adicionar pessoas refaz o sorteio: todos recebem um novo link. Continuar?"{% endif %}>
+          <textarea class="textarea" name="list" rows="4" placeholder="Uma pessoa por linha:
+Helena Prado, helena@exemplo.com
+Igor Prado <igor@exemplo.com>" required></textarea>
+          <div class="actions"><span class="tiny muted">Aceita “Nome, email” ou “Nome &lt;email&gt;”. Emails repetidos são ignorados.</span><span class="spacer"></span><button type="submit" class="btn btn-secondary btn-sm">Adicionar todos</button></div>
+        </form>
+      </details>
+    </div>
+  </details>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>Quem não pode tirar quem</h2><span class="tiny muted">{% if exclusions.is_empty() %}opcional{% else %}{{ exclusions.len() }} {% if exclusions.len() == 1 %}par{% else %}pares{% endif %}{% endif %}</span></div>
+  <p class="small muted" style="margin-bottom:14px">Útil para casais ou quem já troca presente por fora. A restrição vale nos dois sentidos.{% if game.is_drawn() %} Alterar uma restrição refaz o sorteio.{% endif %}</p>
+  {% if !exclusions.is_empty() %}
+  <div class="pairs" style="margin-bottom:14px">
+    {% for x in exclusions %}
+    <form method="post" action="/jogo/{{ game.id }}/restricoes/remover" class="pair"{% if game.is_drawn() %} data-confirm="Remover a restrição entre {{ x.a_name }} e {{ x.b_name }} refaz o sorteio. Continuar?"{% endif %}>
+      <input type="hidden" name="a" value="{{ x.a_id }}"><input type="hidden" name="b" value="{{ x.b_id }}">
+      <span>{{ x.a_name }} ↔ {{ x.b_name }}</span>
+      <button type="submit" class="x" title="Remover restrição" aria-label="Remover restrição entre {{ x.a_name }} e {{ x.b_name }}"><svg class="i sm"><use href="#i-x"/></svg></button>
+    </form>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if rows.len() >= 2 %}
+  <form method="post" action="/jogo/{{ game.id }}/restricoes" class="row-3"{% if game.is_drawn() %} data-confirm="Adicionar uma restrição refaz o sorteio: todos recebem um novo link. Continuar?"{% endif %}>
+    <div class="field"><label for="x-a">Pessoa</label><select class="select" id="x-a" name="a" required>{% for r in rows %}<option value="{{ r.p.id }}">{{ r.p.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="x-b">não pode tirar</label><select class="select" id="x-b" name="b" required>{% for r in rows %}<option value="{{ r.p.id }}"{% if loop.index == 2 %} selected{% endif %}>{{ r.p.name }}</option>{% endfor %}</select></div>
+    <button type="submit" class="btn btn-secondary btn-block-sm"><svg class="i"><use href="#i-plus"/></svg> Restringir</button>
+  </form>
+  {% else %}
+  <p class="tiny muted">Adicione pelo menos duas pessoas para criar restrições.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>Mensagem para o grupo</h2><span class="tiny muted">opcional</span></div>
+  <form method="post" action="/jogo/{{ game.id }}/mensagem" class="stack">
+    <textarea class="textarea" name="message" rows="3" maxlength="{{ max_message_chars }}" placeholder="Vai ser na casa da vó, depois do almoço. Nada de meia!">{{ game.message.as_deref().unwrap_or("") }}</textarea>
+    <div class="actions"><span class="hint" style="margin:0">Aparece no convite e na página de cada participante.</span><span class="spacer"></span><button type="submit" class="btn btn-secondary btn-sm">Salvar mensagem</button></div>
+  </form>
+</div>
+
+{% if game.is_drawn() %}
+<div class="card">
+  <div class="card-head"><h2>Mudou alguma coisa?</h2></div>
+  <div class="stack">
+    <p class="small muted">Adicionar ou remover alguém, ou mudar uma restrição, refaz o sorteio automaticamente: todos recebem um novo link e o anterior deixa de valer. Também dá para refazer o sorteio do zero, até o dia da troca.</p>
+    <form method="post" action="/jogo/{{ game.id }}/sortear" class="actions" data-confirm="Refazer o sorteio? Todos recebem um novo email com um novo link e os links anteriores deixam de valer.">
+      <button type="submit" class="btn btn-secondary"><svg class="i"><use href="#i-refresh"/></svg> Refazer o sorteio</button>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="card draw">
+  <h2>Tudo pronto para sortear?</h2>
+  <p class="muted" style="margin:8px 0 18px">Cada participante recebe um email com um link secreto. Depois, você acompanha quem já abriu, reenvia convites e pode refazer o sorteio se alguém entrar ou sair.</p>
+  <form method="post" action="/jogo/{{ game.id }}/sortear" data-confirm="Sortear agora e enviar os convites para {{ rows.len() }} pessoas?">
+    <button type="submit" class="btn btn-primary btn-lg btn-block"{% if rows.len() < min_participants %} disabled{% endif %}><svg class="i"><use href="#i-gift"/></svg> Sortear e enviar os convites</button>
+  </form>
+  <p class="tiny muted center" style="margin-top:10px"><svg class="i sm"><use href="#i-lock"/></svg> {% if rows.len() < min_participants %}Faltam {{ min_participants - rows.len() }} para o mínimo de {{ min_participants }}.{% else %}Você não verá o resultado.{% endif %}</p>
+</div>
+{% endif %}
+
+<details class="danger-zone">
+  <summary><span>Quer cancelar este evento? {% if game.is_drawn() %}Os links deixam de funcionar e os dados são apagados na hora.{% else %}Os dados são apagados na hora.{% endif %}</span><span class="btn btn-danger btn-sm">Excluir sorteio</span></summary>
+  <form method="post" action="/jogo/{{ game.id }}/excluir" class="row-3" style="margin-top:14px">
+    <div class="field" style="grid-column:1/3"><label for="confirm_name">Para confirmar, digite o nome do evento: <strong>{{ game.name }}</strong></label><input class="input" id="confirm_name" name="confirm_name" autocomplete="off" required></div>
+    <button type="submit" class="btn btn-danger btn-block-sm">Excluir de vez</button>
+  </form>
+</details>
+
+<dialog id="edit-dialog" class="dialog">
+  <form method="post" action="" class="stack" id="edit-form">
+    <h2>Editar participante</h2>
+    <div class="field"><label for="e-name">Nome</label><input class="input" id="e-name" name="name" maxlength="80" required></div>
+    <div class="field"><label for="e-email">Email</label><input class="input" id="e-email" name="email" type="email" required>{% if game.is_drawn() %}<div class="hint">Se o email mudar, enviamos o convite para o novo endereço e o link antigo deixa de valer. Não é possível trocar o email de quem já revelou.</div>{% endif %}</div>
+    <div class="actions"><span class="spacer"></span><button type="button" class="btn btn-secondary" data-close-dialog>Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div>
+  </form>
+</dialog>
+{% endblock %}

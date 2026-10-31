@@ -1,0 +1,16 @@
+Olá, {{ participant_name }}!
+
+{% if redraw %}O sorteio do amigo oculto "{{ game_name }}" foi refeito por {{ organizer_name }}. Esqueça o resultado anterior: o link antigo deixou de valer e este é o novo.{% else %}{{ organizer_name }} convidou você para o amigo oculto "{{ game_name }}". O sorteio já foi feito, e só você pode ver quem tirou.{% endif %}
+
+Troca de presentes: {{ event_date }}
+{% if let Some(b) = budget %}Valor sugerido: até {{ b }}
+{% endif %}{% if let Some(msg) = message %}
+Mensagem de {{ organizer_name }}:
+"{{ msg }}"
+{% endif %}
+Revele seu amigo oculto aqui (o link é só seu, não encaminhe):
+{{ reveal_url }}
+
+Na mesma página você pode deixar dicas de presente para quem tirou você. Respondendo a este email, você fala diretamente com {{ organizer_name }}.
+
+— {{ site.name }} · {{ site.url }}

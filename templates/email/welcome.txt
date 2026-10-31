@@ -1,0 +1,10 @@
+Olá, {{ organizer_name }}!
+
+O sorteio "{{ game_name }}" ({{ event_date }}) foi criado. Pela página do organizador você adiciona os participantes, define quem não pode tirar quem e faz o sorteio.
+
+Página do organizador:
+{{ login_url }}
+
+Guarde este email. O link vale por 30 dias e serve para entrar de novo em outro aparelho; depois disso, peça um novo em "Perdi meu link".
+
+— {{ site.name }} · {{ site.url }}

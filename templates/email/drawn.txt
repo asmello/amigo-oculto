@@ -1,0 +1,8 @@
+Olá, {{ organizer_name }}!
+
+{% if redraw %}O sorteio de "{{ game_name }}" foi refeito.{% else %}O sorteio de "{{ game_name }}" foi realizado.{% endif %} Os {{ participant_count }} participantes estão recebendo um email com o link secreto de cada um{% if redraw %} — os links anteriores deixaram de valer{% endif %}.
+
+Acompanhe quem já abriu, reenvie convites ou refaça o sorteio:
+{{ login_url }}
+
+— {{ site.name }} · {{ site.url }}

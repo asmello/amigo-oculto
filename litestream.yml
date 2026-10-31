@@ -1,7 +1,13 @@
+# Litestream 0.5.x. Credentials come from LITESTREAM_ACCESS_KEY_ID / LITESTREAM_SECRET_ACCESS_KEY.
+snapshot:
+  interval: 24h
+  retention: 168h   # one week of point-in-time restore
+
 dbs:
-  - path: /app/data/amigo_oculto.db
+  - path: /app/data/amigo_oculto_v2.db
     replica:
       type: s3
       bucket: $LITESTREAM_BUCKET
-      path: db
+      path: $LITESTREAM_PATH
       endpoint: $LITESTREAM_ENDPOINT
+      sync-interval: 10s

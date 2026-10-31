@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Amigo Oculto Simples — sorteio de amigo oculto por email{% endblock %}
+{% block content %}
+<section class="hero">
+  <span class="eyebrow"><svg class="i sm"><use href="#i-sparkles"/></svg> Sem cadastro, sem aplicativo</span>
+  <h1>O amigo oculto da família, sorteado em dois minutos.</h1>
+  <p class="lead">Você adiciona os participantes, a gente sorteia e avisa cada um por email com um link secreto. Ninguém vê o resultado — nem você.</p>
+</section>
+
+<div class="card" id="criar">
+  <div class="card-head"><h2>Criar sorteio</h2><span class="tiny muted">Leva menos de um minuto</span></div>
+  {% if !errors.is_empty() %}
+  <div class="banner error" role="alert" style="margin-bottom:16px">
+    <svg class="i"><use href="#i-alert"/></svg>
+    <div>{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>
+  </div>
+  {% endif %}
+  <form method="post" action="/criar" class="stack" novalidate>
+    <div class="field">
+      <label for="name">Nome do evento</label>
+      <input class="input" id="name" name="name" value="{{ form.name }}" placeholder="Natal da família Mello" maxlength="80" required autocomplete="off">
+    </div>
+    <div class="row-2">
+      <div class="field">
+        <label for="event_date">Data da troca de presentes</label>
+        <input class="input" id="event_date" name="event_date" type="date" value="{{ form.event_date }}" min="{{ min_date }}" required>
+      </div>
+      <div class="field">
+        <label for="budget">Valor sugerido <span class="opt">(opcional)</span></label>
+        <div class="prefix"><span>R$</span><input class="input" id="budget" name="budget" value="{{ form.budget }}" placeholder="80" inputmode="decimal" autocomplete="off"></div>
+      </div>
+    </div>
+    <div class="row-2">
+      <div class="field">
+        <label for="organizer_name">Seu nome</label>
+        <input class="input" id="organizer_name" name="organizer_name" value="{{ form.organizer_name }}" placeholder="Ana" maxlength="60" required autocomplete="name">
+      </div>
+      <div class="field">
+        <label for="organizer_email">Seu email</label>
+        <input class="input" id="organizer_email" name="organizer_email" type="email" value="{{ form.organizer_email }}" placeholder="ana@exemplo.com" required autocomplete="email">
+        <div class="hint">Enviamos um código de 6 dígitos para confirmar que é você.</div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary btn-lg btn-block">Continuar <svg class="i"><use href="#i-arrow-right"/></svg></button>
+    <p class="tiny muted center">Já organizou um sorteio? <a href="/recuperar">Receber meus links por email</a></p>
+  </form>
+</div>
+
+<section class="section" id="como-funciona">
+  <h2>Como funciona</h2>
+  <p class="muted">Três passos. O organizador também pode participar.</p>
+  <div class="steps">
+    <div class="step"><div class="num">1</div><h3>Crie o evento</h3><p>Nome, data, valor sugerido e uma mensagem para o grupo, se quiser.</p></div>
+    <div class="step"><div class="num">2</div><h3>Adicione os participantes</h3><p>Um por um ou colando uma lista. Marque quem não pode tirar quem — casais, por exemplo.</p></div>
+    <div class="step"><div class="num">3</div><h3>Sorteie</h3><p>Cada pessoa recebe um email com um link secreto. Você acompanha quem já abriu e reenvia se precisar.</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <h2>Perguntas frequentes</h2>
+  <dl class="faq">
+    <div><dt>O organizador vê quem tirou quem?</dt><dd>Não. O resultado fica guardado de forma que só cada participante consegue ver o seu.</dd></div>
+    <div><dt>Alguém desistiu. E agora?</dt><dd>Remova a pessoa: o sorteio é refeito na hora e todo mundo recebe um novo link.</dd></div>
+    <div><dt>Perdi o email com o link.</dt><dd>Peça de novo em <a href="/recuperar">Perdi meu link</a>: enviamos os links de todos os sorteios ligados ao seu email.</dd></div>
+    <div><dt>O que acontece com os emails?</dt><dd>Servem só para enviar os convites. Tudo é apagado 90 dias depois da troca.</dd></div>
+  </dl>
+</section>
+{% endblock %}

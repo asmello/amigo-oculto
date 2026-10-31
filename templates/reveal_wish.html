@@ -1,0 +1,8 @@
+<div class="wish">
+  <h3><svg class="i sm"><use href="#i-heart"/></svg> Ajude quem tirou você</h3>
+  <p class="small muted" style="margin-bottom:10px">Escreva dicas de presente. Só quem tirou você consegue ler.</p>
+  <form method="post" action="/revelar/{{ token }}/dicas" class="stack">
+    <textarea class="textarea" name="wishlist" rows="3" maxlength="{{ max_wishlist_chars }}" placeholder="Ex.: tamanho M, adoro chá, não uso perfume…">{{ me.wishlist.as_deref().unwrap_or("") }}</textarea>
+    <div class="actions"><span class="spacer"></span><button type="submit" class="btn btn-secondary btn-sm btn-block-sm">Salvar dicas</button></div>
+  </form>
+</div>

@@ -1,0 +1,22 @@
+{% extends "email/_layout.html" %}
+{% import "email/_macros.html" as m %}
+{% block subject %}{% if redraw %}Novo sorteio{% else %}Convite{% endif %}: {{ game_name }}{% endblock %}
+{% block preheader %}{% if redraw %}O sorteio foi refeito — este é o seu novo link.{% else %}Seu link secreto para descobrir quem você tirou.{% endif %}{% endblock %}
+{% block body %}
+<p style="margin:0 0 14px 0;">Olá, {{ participant_name }}!</p>
+{% if redraw %}
+<p style="margin:0 0 14px 0;">O sorteio do amigo oculto <strong>{{ game_name }}</strong> foi refeito por {{ organizer_name }}. <strong>Esqueça o resultado anterior:</strong> o link antigo deixou de valer e este é o novo.</p>
+{% else %}
+<p style="margin:0 0 14px 0;">{{ organizer_name }} convidou você para o amigo oculto <strong>{{ game_name }}</strong>. O sorteio já foi feito, e só você pode ver quem tirou.</p>
+{% endif %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:6px 0 4px 0;font-size:15px;color:#5F6F67;">
+  <tr><td style="padding:2px 0;">Troca de presentes: <strong style="color:#1C2622;">{{ event_date }}</strong></td></tr>
+  {% if let Some(b) = budget %}<tr><td style="padding:2px 0;">Valor sugerido: <strong style="color:#1C2622;">até {{ b }}</strong></td></tr>{% endif %}
+</table>
+{% if let Some(msg) = message %}
+<div style="margin:18px 0 6px 0;padding:12px 16px;background:#FBEFEA;border-left:3px solid #C85A3E;border-radius:0 10px 10px 0;font-size:15px;">“{{ msg }}”<br><span style="font-size:13px;color:#5F6F67;">— {{ organizer_name }}</span></div>
+{% endif %}
+{{ m::accent_button(reveal_url, "Revelar meu amigo oculto") }}
+{{ m::fallback(reveal_url) }}
+<p style="margin:0;font-size:14px;color:#5F6F67;">Este link é só seu: não encaminhe este email. Na mesma página você pode deixar dicas de presente para quem tirou você. Respondendo a este email, você fala diretamente com {{ organizer_name }}.</p>
+{% endblock %}

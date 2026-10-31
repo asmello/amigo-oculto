@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Meus sorteios — Amigo Oculto Simples{% endblock %}
+{% block robots %}noindex{% endblock %}
+{% block content %}
+<section class="hero" style="padding-bottom:18px">
+  <h1>Meus sorteios</h1>
+  <p class="lead">Sorteios organizados por {{ email }}.</p>
+</section>
+<div class="card">
+  {% if games.is_empty() %}
+  <p class="muted">Você ainda não organiza nenhum sorteio.</p>
+  <p style="margin-top:16px"><a href="/" class="btn btn-primary">Criar um sorteio</a></p>
+  {% else %}
+  <ul class="list games">
+    {% for g in games %}
+    <li>
+      <div class="who">
+        <div class="name"><a href="/jogo/{{ g.id }}">{{ g.name }}</a></div>
+        <div class="email">{{ g.event_date|date_long }}{% if let Some(b) = g.budget_cents %} · até {{ b|money }}{% endif %}</div>
+      </div>
+      <div class="status-col">
+        {% if g.is_drawn() %}<span class="chip chip-ok"><svg class="i sm"><use href="#i-check"/></svg> Sorteado</span>{% else %}<span class="chip chip-wait"><span class="dot"></span> Aguardando sorteio</span>{% endif %}
+      </div>
+      <div class="li-actions"><a class="btn btn-secondary btn-sm" href="/jogo/{{ g.id }}">Abrir</a></div>
+    </li>
+    {% endfor %}
+  </ul>
+  <p style="margin-top:18px"><a href="/#criar" class="btn btn-secondary"><svg class="i"><use href="#i-plus"/></svg> Criar outro sorteio</a></p>
+  {% endif %}
+</div>
+{% endblock %}

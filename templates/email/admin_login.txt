@@ -1,0 +1,7 @@
+Link de acesso ao painel. Vale por {{ minutes }} minutos e só uma vez.
+
+{{ login_url }}
+
+Se você não pediu isso, ignore este email.
+
+— {{ site.name }} · {{ site.url }}

@@ -1,0 +1,1 @@
+Fraunces (https://github.com/undercasetype/Fraunces) by Undercase Type, licensed under the SIL Open Font License 1.1 (https://openfontlicense.org). Latin subset of the variable font (opsz, wght, SOFT axes) as served by Google Fonts.

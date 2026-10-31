@@ -1,0 +1,15 @@
+Olá!
+
+Alguém (provavelmente você) pediu os links ligados a este email. Aqui estão:
+{% if !organized.is_empty() %}
+Sorteios que você organiza:
+{% for item in organized %}- {{ item.game_name }} ({{ item.event_date }})
+  {{ item.url }}
+{% endfor %}{% endif %}{% if !participations.is_empty() %}
+Sorteios de que você participa:
+{% for item in participations %}- {{ item.game_name }} ({{ item.event_date }})
+  {{ item.url }}
+{% endfor %}{% endif %}
+Os links de participante acima são novos: os anteriores deixaram de valer. Se você não pediu isso, pode ignorar este email.
+
+— {{ site.name }} · {{ site.url }}

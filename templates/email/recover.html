@@ -1,0 +1,20 @@
+{% extends "email/_layout.html" %}
+{% block subject %}Seus links{% endblock %}
+{% block preheader %}Os links dos sorteios ligados ao seu email.{% endblock %}
+{% block body %}
+<p style="margin:0 0 14px 0;">Olá!</p>
+<p style="margin:0 0 14px 0;">Alguém (provavelmente você) pediu os links ligados a este email. Aqui estão:</p>
+{% if !organized.is_empty() %}
+<p style="margin:18px 0 6px 0;font-weight:bold;">Sorteios que você organiza</p>
+<ul style="margin:0;padding-left:20px;">
+{% for item in organized %}<li style="margin:0 0 8px 0;"><strong>{{ item.game_name }}</strong> ({{ item.event_date }})<br><a href="{{ item.url }}" style="color:#1F4D3A;word-break:break-all;">{{ item.url }}</a></li>
+{% endfor %}</ul>
+{% endif %}
+{% if !participations.is_empty() %}
+<p style="margin:18px 0 6px 0;font-weight:bold;">Sorteios de que você participa</p>
+<ul style="margin:0;padding-left:20px;">
+{% for item in participations %}<li style="margin:0 0 8px 0;"><strong>{{ item.game_name }}</strong> ({{ item.event_date }})<br><a href="{{ item.url }}" style="color:#C85A3E;word-break:break-all;">{{ item.url }}</a></li>
+{% endfor %}</ul>
+{% endif %}
+<p style="margin:18px 0 0 0;font-size:14px;color:#5F6F67;">Os links de participante acima são novos: os anteriores deixaram de valer. Se você não pediu isso, pode ignorar este email.</p>
+{% endblock %}

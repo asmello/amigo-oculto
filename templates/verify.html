@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Confirme seu email — Amigo Oculto Simples{% endblock %}
+{% block robots %}noindex{% endblock %}
+{% block content %}
+<div class="card narrow">
+  <div class="card-head"><h2>Confirme seu email</h2></div>
+  <p class="muted" style="margin-bottom:18px">Enviamos um código de 6 dígitos para <strong>{{ email }}</strong>. Ele vale por {{ minutes }} minutos. Não chegou? Confira a caixa de spam.</p>
+  {% if let Some(e) = error %}
+  <div class="banner error" role="alert" style="margin-bottom:16px"><svg class="i"><use href="#i-alert"/></svg><div>{{ e }}</div></div>
+  {% endif %}
+  {% if expired || attempts_left == 0 %}
+  <form method="post" action="/verificar/{{ id }}/reenviar" class="stack">
+    <p class="small muted">{% if expired %}O código expirou.{% else %}O código foi bloqueado após muitas tentativas.{% endif %} Peça um novo para continuar criando “{{ game_name }}”.</p>
+    <button type="submit" class="btn btn-primary btn-lg btn-block">Enviar um novo código</button>
+  </form>
+  {% else %}
+  <form method="post" action="/verificar/{{ id }}" class="stack" id="verify-form">
+    <div class="field">
+      <label for="code">Código</label>
+      <input class="input otp" id="code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required autofocus data-autosubmit="6">
+    </div>
+    <button type="submit" class="btn btn-primary btn-lg btn-block">Confirmar e criar “{{ game_name }}”</button>
+  </form>
+  <form method="post" action="/verificar/{{ id }}/reenviar" class="center" style="margin-top:16px">
+    <button type="submit" class="linklike small">Reenviar o código</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,39 +1,13 @@
-# Added from .gitignore
-# Rust
-backend/**/*.rs.bk
-
-# Node
-frontend/node_modules
-frontend/build
-frontend/.svelte-kit
-frontend/package-lock.json
-
-# Environment files
-**/.env
-**/.env.local
-
-# Database
-data
-**/*.db
-**/*.db-shm
-**/*.db-wal
-
-# OS
-**/.DS_Store
-**/Thumbs.db
-
-# IDE
-**/.vscode
-**/.idea
-**/*.swp
-**/*.swo
-**/*~
-
-# Logs
-**/*.log
-**/npm-debug.log*
-**/yarn-debug.log*
-**/yarn-error.log*
-
-# Added from backend/.gitignore
-fly.toml
+/target
+/data
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.local
+.git
+.github
+.idea
+.vscode
+*.log
+RUNBOOK.md

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Termos de uso — Amigo Oculto Simples{% endblock %}
+{% block content %}
+<article class="card prose" style="margin-top:14px">
+  <h1>Termos de uso</h1>
+  <p class="muted">Um serviço gratuito, feito para famílias e grupos de amigos.</p>
+
+  <h2>O serviço</h2>
+  <p>O Amigo Oculto Simples sorteia pares de presente entre as pessoas que você cadastrar e avisa cada uma por email. É oferecido como está, sem garantia de disponibilidade. Fazemos o possível para manter tudo funcionando, mas não nos responsabilizamos por emails que não cheguem, atrasos ou indisponibilidade — guarde o link do seu sorteio e, na dúvida, confirme com o grupo.</p>
+
+  <h2>Uso aceitável</h2>
+  <ul>
+    <li>Cadastre apenas pessoas que concordaram em participar e que esperam receber o email.</li>
+    <li>Não use o site para enviar propaganda, correntes ou qualquer email não solicitado.</li>
+    <li>Há limites de sorteios por dia, participantes por sorteio e reenvios para evitar abuso. Contas que abusem podem ser bloqueadas e seus sorteios apagados.</li>
+  </ul>
+
+  <h2>Dados</h2>
+  <p>O que guardamos, por quanto tempo e como apagar está na <a href="/privacidade">página de privacidade</a>.</p>
+
+  <h2>Contato</h2>
+  <p>Dúvidas, problemas ou pedidos: <a href="mailto:{{ contact }}">{{ contact }}</a>.</p>
+</article>
+{% endblock %}
