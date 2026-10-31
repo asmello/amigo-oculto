@@ -30,6 +30,21 @@ async fn healthz_and_static_assets() {
     );
     assert_eq!(app.get("/static/nope.css").await.status, 404);
     assert_eq!(app.get("/nao-existe").await.status, 404);
+
+    // Every preloaded font must be the exact URL the stylesheet loads; a different URL (e.g. an
+    // added ?v=) makes browsers fetch the font twice.
+    let home = app.get("/").await;
+    let preloads: Vec<&str> = home
+        .body
+        .split("<link rel=\"preload\" href=\"")
+        .skip(1)
+        .filter_map(|s| s.split('"').next())
+        .collect();
+    assert!(!preloads.is_empty(), "home page preloads the heading font");
+    for href in preloads {
+        css.assert_contains(&format!("url(\"{href}\")"));
+        app.get(href).await.assert_ok();
+    }
 }
 
 #[tokio::test]
