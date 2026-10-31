@@ -8,7 +8,8 @@
 <meta name="robots" content="{% block robots %}index, follow{% endblock %}">
 <meta name="theme-color" content="#F8F4EC">
 <link rel="icon" href="/static/favicon.svg?v={{ ctx.asset_version }}" type="image/svg+xml">
-<link rel="preload" href="/static/fonts/fraunces.woff2?v={{ ctx.asset_version }}" as="font" type="font/woff2" crossorigin>
+{# Must be byte-identical to the url() in app.css, or browsers download the font twice. #}
+<link rel="preload" href="/static/fonts/fraunces.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/static/app.css?v={{ ctx.asset_version }}">
 </head>
 <body>

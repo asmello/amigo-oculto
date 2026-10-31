@@ -2,6 +2,7 @@
 
 @font-face {
   font-family: "Fraunces";
+  /* Same URL as the <link rel="preload"> in base.html, so the preloaded file is reused. */
   src: url("/static/fonts/fraunces.woff2") format("woff2");
   font-weight: 400 700;
   font-style: normal;
