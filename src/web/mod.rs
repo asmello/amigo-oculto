@@ -58,12 +58,20 @@ impl AppState {
         }
     }
 
-    /// Queues an email and wakes the worker. Call after the surrounding transaction commits.
+    /// Queues a stand-alone email and wakes the worker. An email that belongs to a larger state
+    /// change (a draw, a rotated link, a created game) must instead be enqueued inside that
+    /// change's transaction with `repo::outbox::enqueue`, followed by `wake_mailer` after the
+    /// commit, so the two can never be persisted without each other.
     pub async fn enqueue(&self, email: &NewEmail) -> Result<(), AppError> {
         let mut conn = self.db.acquire().await.map_err(anyhow::Error::from)?;
         crate::repo::outbox::enqueue(&mut conn, email, crate::db::now()).await?;
-        self.mail_notify.notify_one();
+        self.wake_mailer();
         Ok(())
+    }
+
+    /// Tells the outbox worker there is new mail. Call once the enqueuing transaction committed.
+    pub fn wake_mailer(&self) {
+        self.mail_notify.notify_one();
     }
 
     pub fn url(&self, path: &str) -> String {

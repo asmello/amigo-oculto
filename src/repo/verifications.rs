@@ -52,13 +52,18 @@ pub async fn record_attempt(ex: Exec<'_>, id: VerificationId) -> Result<i64> {
     Ok(n)
 }
 
-pub async fn consume(ex: Exec<'_>, id: VerificationId, now: i64) -> Result<()> {
-    sqlx::query("UPDATE verifications SET consumed_at = ? WHERE id = ?")
-        .bind(now)
-        .bind(id)
-        .execute(ex)
-        .await?;
-    Ok(())
+/// Claims the verification. Returns false when it had already been consumed, which is how a
+/// duplicate submit of the same code (double tap, retried request) loses the race: only the
+/// request that flips `consumed_at` may create the game.
+pub async fn consume(ex: Exec<'_>, id: VerificationId, now: i64) -> Result<bool> {
+    let r = sqlx::query(
+        "UPDATE verifications SET consumed_at = ? WHERE id = ? AND consumed_at IS NULL",
+    )
+    .bind(now)
+    .bind(id)
+    .execute(ex)
+    .await?;
+    Ok(r.rows_affected() == 1)
 }
 
 pub async fn replace_code(

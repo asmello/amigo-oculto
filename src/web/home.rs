@@ -245,14 +245,20 @@ pub struct VerifyPage {
 
 async fn load_verification(state: &AppState, id: VerificationId) -> Result<Verification, AppError> {
     let mut conn = state.db.acquire().await.map_err(anyhow::Error::from)?;
-    repo::verifications::get(&mut conn, id)
-        .await?
-        .filter(|v| v.consumed_at.is_none())
-        .ok_or_else(|| {
-            AppError::not_found(
-                "Esse pedido de verificação não existe mais. Comece de novo na página inicial.",
-            )
-        })
+    match repo::verifications::get(&mut conn, id).await? {
+        Some(v) if v.consumed_at.is_none() => Ok(v),
+        Some(_) => Err(verification_already_used()),
+        None => Err(AppError::not_found(
+            "Esse pedido de verificação não existe mais. Comece de novo na página inicial.",
+        )),
+    }
+}
+
+fn verification_already_used() -> AppError {
+    AppError::not_found(
+        "Esse código já foi usado e o sorteio já existe. Procure o email de boas-vindas ou use \
+         “Perdi meu link” para entrar.",
+    )
 }
 
 fn verify_page(ctx: PageCtx, v: &Verification, error: Option<String>) -> VerifyPage {
@@ -347,7 +353,14 @@ pub async fn verify(
         return Ok((jar, verify_page(PageCtx::new(None, session), &v, Some(msg))).into_response());
     }
 
-    // Code accepted: create the game, consume the verification, log the organizer in.
+    // Code accepted. Claim the verification first: two submits of the same code can race
+    // (double tap, retried request) and only the one that flips consumed_at may create a
+    // game. The game, the session, the login link and the welcome email then land in the
+    // same transaction, so none of them can exist without the others.
+    let mut tx = state.db.begin().await.map_err(anyhow::Error::from)?;
+    if !repo::verifications::consume(&mut tx, id, now).await? {
+        return Err(verification_already_used());
+    }
     let game = Game {
         id: GameId::new(),
         name: v.name.clone(),
@@ -362,9 +375,7 @@ pub async fn verify(
         created_at: now,
         updated_at: now,
     };
-    let mut tx = state.db.begin().await.map_err(anyhow::Error::from)?;
     repo::games::insert(&mut tx, &game).await?;
-    repo::verifications::consume(&mut tx, id, now).await?;
     let cookie =
         auth::start_session(&mut tx, &game.organizer_email, SessionKind::Organizer).await?;
     let login = auth::issue_login_token(
@@ -374,12 +385,15 @@ pub async fn verify(
         auth::ORGANIZER_LINK_SECS,
     )
     .await?;
-    tx.commit().await.map_err(anyhow::Error::from)?;
-
     let login_url = auth::login_url(&state, &login, Some(&format!("/jogo/{}", game.id)));
-    state
-        .enqueue(&compose::welcome(&state.site, &game, &login_url)?)
-        .await?;
+    repo::outbox::enqueue(
+        &mut tx,
+        &compose::welcome(&state.site, &game, &login_url)?,
+        now,
+    )
+    .await?;
+    tx.commit().await.map_err(anyhow::Error::from)?;
+    state.wake_mailer();
 
     let jar = set_flash(
         jar.add(cookie),

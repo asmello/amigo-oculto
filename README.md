@@ -19,8 +19,10 @@ English.
 - **Redraw semantics** — any change to participants or exclusions after the draw triggers a full
   redraw: everyone receives a new link and the old ones stop working. Nothing is ever patched in.
 - **Outbox email** — invitations, welcome, resend, recovery and admin links are queued in the
-  database; a background worker delivers them with exponential backoff and distinguishes permanent
-  from transient SMTP failures; the organizer sees per-participant delivery status.
+  database, in the same transaction as the change that caused them; a background worker delivers
+  them with exponential backoff and distinguishes permanent from transient SMTP failures; the
+  organizer sees per-participant delivery status. A redraw or a re-sent link retires invitations
+  still waiting in the queue, so a dead link is never delivered.
 - **Reveal on POST** — opening the email or the page never counts; only pressing the reveal button does.
 - **Gift hints** — written by each participant on their reveal page, visible only to whoever drew them.
 - **Self-service link recovery** ("Perdi meu link") — never reveals whether an email is known.

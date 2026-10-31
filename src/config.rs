@@ -71,7 +71,7 @@ impl Config {
         let from_name = env_or("SMTP_FROM_NAME", "Amigo Oculto Simples");
         let transport = env_or(
             "MAIL_TRANSPORT",
-            if env::var("SMTP_HOST").is_ok() {
+            if env::var("SMTP_HOST").is_ok_and(|v| !v.trim().is_empty()) {
                 "smtp"
             } else {
                 "log"
@@ -79,7 +79,10 @@ impl Config {
         );
         let mail = match transport.as_str() {
             "smtp" => MailConfig::Smtp(SmtpConfig {
-                host: env::var("SMTP_HOST").context("SMTP_HOST is required")?,
+                host: env::var("SMTP_HOST")
+                    .ok()
+                    .filter(|v| !v.trim().is_empty())
+                    .context("SMTP_HOST is required when MAIL_TRANSPORT=smtp")?,
                 port: env_or("SMTP_PORT", "587")
                     .parse()
                     .context("SMTP_PORT must be a number")?,

@@ -6,6 +6,7 @@ use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
+use amigo_oculto::config::MailConfig;
 use amigo_oculto::mail::{Mailer, worker};
 use amigo_oculto::{AppState, Config, cleanup, db, router};
 
@@ -22,6 +23,14 @@ async fn main() -> Result<()> {
     let cfg = Config::from_env()?;
     let pool = db::connect(&cfg.database_url).await?;
     let mailer = Mailer::from_config(&cfg.mail)?;
+    match &cfg.mail {
+        MailConfig::Smtp(s) => {
+            tracing::info!(host = %s.host, port = s.port, "mail transport: smtp")
+        }
+        MailConfig::Log { .. } => {
+            tracing::warn!("mail transport: log (emails are printed, not sent)")
+        }
+    }
     if let Err(e) = mailer.test().await {
         // Keep serving: queued mail is retried by the worker, and a dead SMTP relay should not
         // take the organizer pages down with it.

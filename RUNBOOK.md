@@ -36,7 +36,8 @@ re-executes `run.sh` as `appuser` (no `RAILWAY_RUN_UID` needed).
 - Rejected (permanent SMTP error) → fix the address (edit participant; new link is issued and
   emailed automatically) or wait out the 10-minute resend throttle.
 - `Enviando` for long → check smtp2go dashboard (quota/outage) and Railway logs for the retry
-  backoff (30 s → 2 min → 10 min → 1 h → 6 h, then failed).
+  backoff (30 s → 2 min → 10 min → 1 h → 6 h, then failed). Rows whose link was rotated
+  before they went out (redraw, resend, email change) are marked `cancelled`, never sent.
 
 ### Volume wiped / fresh deploy restores empty DB
 `run.sh` restores the latest Litestream replica automatically at boot (`-if-db-not-exists

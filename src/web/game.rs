@@ -110,6 +110,8 @@ pub async fn show(
                 Some((OutboxStatus::Queued, _)) => (InviteDelivery::Queued, None),
                 Some((OutboxStatus::Sent, _)) => (InviteDelivery::Sent, None),
                 Some((OutboxStatus::Failed, e)) => (InviteDelivery::Failed, e.clone()),
+                // Cancelled rows are filtered out by the query; a fresh one always replaces them.
+                Some((OutboxStatus::Cancelled, _)) => (InviteDelivery::None, None),
             };
             let is_organizer = p.email == game.organizer_email;
             ParticipantRow {
@@ -608,8 +610,8 @@ pub async fn edit_participant(
         Ok(v) => v,
         Err(msg) => return Ok(back(jar, id, FlashKind::Error, msg)),
     };
-    let mut conn = state.db.acquire().await.map_err(anyhow::Error::from)?;
-    let Some(p) = repo::participants::get(&mut conn, pid)
+    let mut tx = state.db.begin().await.map_err(anyhow::Error::from)?;
+    let Some(p) = repo::participants::get(&mut tx, pid)
         .await?
         .filter(|p| p.game_id == id)
     else {
@@ -632,7 +634,7 @@ pub async fn edit_participant(
             ),
         ));
     }
-    if email_changed && repo::participants::email_exists(&mut conn, id, &email).await? {
+    if email_changed && repo::participants::email_exists(&mut tx, id, &email).await? {
         return Ok(back(
             jar,
             id,
@@ -640,23 +642,30 @@ pub async fn edit_participant(
             format!("{email} já está na lista."),
         ));
     }
-    repo::participants::update_name_email(&mut conn, pid, &name, &email).await?;
-    repo::games::touch(&mut conn, id, db::now()).await?;
+    let now = db::now();
+    repo::participants::update_name_email(&mut tx, pid, &name, &email).await?;
+    repo::games::touch(&mut tx, id, now).await?;
 
     if game.is_drawn() && email_changed {
-        // A new address gets its own fresh link; the one sent to the old address dies.
+        // A new address gets its own fresh link; the one sent (or still queued) for the old
+        // address dies. Same transaction as the rename, so neither can land without the other.
         let secret = Secret::generate();
-        repo::participants::set_token_hash(&mut conn, pid, &secret.hash()).await?;
-        drop(conn);
+        repo::participants::set_token_hash(&mut tx, pid, &secret.hash()).await?;
+        repo::outbox::cancel_queued_invites_for(&mut tx, pid).await?;
         let updated = Participant {
             name: name.clone(),
             email,
             ..p
         };
         let url = state.url(&format!("/revelar/{}", secret.as_str()));
-        state
-            .enqueue(&compose::invite(&state.site, &game, &updated, &url, false)?)
-            .await?;
+        repo::outbox::enqueue(
+            &mut tx,
+            &compose::invite(&state.site, &game, &updated, &url, false)?,
+            now,
+        )
+        .await?;
+        tx.commit().await.map_err(anyhow::Error::from)?;
+        state.wake_mailer();
         return Ok(back(
             jar,
             id,
@@ -664,6 +673,7 @@ pub async fn edit_participant(
             format!("Dados de {name} atualizados e convite enviado para o novo email."),
         ));
     }
+    tx.commit().await.map_err(anyhow::Error::from)?;
     Ok(back(
         jar,
         id,
@@ -746,8 +756,9 @@ pub async fn resend_invite(
             "Os convites só existem depois do sorteio.",
         ));
     }
-    let mut conn = state.db.acquire().await.map_err(anyhow::Error::from)?;
-    let Some(p) = repo::participants::get(&mut conn, pid)
+    // One transaction for the rotated link, the retired old invitation and the new one.
+    let mut tx = state.db.begin().await.map_err(anyhow::Error::from)?;
+    let Some(p) = repo::participants::get(&mut tx, pid)
         .await?
         .filter(|p| p.game_id == id)
     else {
@@ -759,9 +770,10 @@ pub async fn resend_invite(
         ));
     };
     let now = db::now();
-    let allowed = repo::rate::allow(&mut conn, &format!("resend:{pid}"), 1, 600, now).await?
-        && repo::rate::allow(&mut conn, &format!("resend_day:{pid}"), 5, 86_400, now).await?;
+    let allowed = repo::rate::allow(&mut tx, &format!("resend:{pid}"), 1, 600, now).await?
+        && repo::rate::allow(&mut tx, &format!("resend_day:{pid}"), 5, 86_400, now).await?;
     if !allowed {
+        tx.commit().await.map_err(anyhow::Error::from)?;
         return Ok(back(
             jar,
             id,
@@ -773,12 +785,17 @@ pub async fn resend_invite(
         ));
     }
     let secret = Secret::generate();
-    repo::participants::set_token_hash(&mut conn, pid, &secret.hash()).await?;
-    drop(conn);
+    repo::participants::set_token_hash(&mut tx, pid, &secret.hash()).await?;
+    repo::outbox::cancel_queued_invites_for(&mut tx, pid).await?;
     let url = state.url(&format!("/revelar/{}", secret.as_str()));
-    state
-        .enqueue(&compose::invite(&state.site, &game, &p, &url, false)?)
-        .await?;
+    repo::outbox::enqueue(
+        &mut tx,
+        &compose::invite(&state.site, &game, &p, &url, false)?,
+        now,
+    )
+    .await?;
+    tx.commit().await.map_err(anyhow::Error::from)?;
+    state.wake_mailer();
     Ok(back(
         jar,
         id,
@@ -805,8 +822,10 @@ pub async fn resend_pending(
             "Os convites só existem depois do sorteio.",
         ));
     }
-    let mut conn = state.db.acquire().await.map_err(anyhow::Error::from)?;
-    if !repo::rate::allow(&mut conn, &format!("resend_all:{id}"), 1, 3600, db::now()).await? {
+    let now = db::now();
+    let mut tx = state.db.begin().await.map_err(anyhow::Error::from)?;
+    if !repo::rate::allow(&mut tx, &format!("resend_all:{id}"), 1, 3600, now).await? {
+        tx.commit().await.map_err(anyhow::Error::from)?;
         return Ok(back(
             jar,
             id,
@@ -814,35 +833,33 @@ pub async fn resend_pending(
             "O reenvio em massa pode ser feito uma vez por hora.",
         ));
     }
-    let pending: Vec<Participant> = repo::participants::list(&mut conn, id)
+    let pending: Vec<Participant> = repo::participants::list(&mut tx, id)
         .await?
         .into_iter()
         .filter(|p| !p.has_revealed())
         .collect();
-    let mut queued = Vec::new();
     for p in &pending {
         let secret = Secret::generate();
-        repo::participants::set_token_hash(&mut conn, p.id, &secret.hash()).await?;
-        queued.push(compose::invite(
-            &state.site,
-            &game,
-            p,
-            &state.url(&format!("/revelar/{}", secret.as_str())),
-            false,
-        )?);
+        repo::participants::set_token_hash(&mut tx, p.id, &secret.hash()).await?;
+        repo::outbox::cancel_queued_invites_for(&mut tx, p.id).await?;
+        let url = state.url(&format!("/revelar/{}", secret.as_str()));
+        repo::outbox::enqueue(
+            &mut tx,
+            &compose::invite(&state.site, &game, p, &url, false)?,
+            now,
+        )
+        .await?;
     }
-    drop(conn);
-    for email in &queued {
-        state.enqueue(email).await?;
-    }
+    tx.commit().await.map_err(anyhow::Error::from)?;
+    state.wake_mailer();
     Ok(back(
         jar,
         id,
         FlashKind::Ok,
         format!(
             "Convites reenviados para {} pessoa{} que ainda não revelaram.",
-            queued.len(),
-            plural(queued.len())
+            pending.len(),
+            plural(pending.len())
         ),
     ))
 }
@@ -952,19 +969,17 @@ pub async fn remove_exclusion(
 // Draw
 // ---------------------------------------------------------------------------------------------
 
-/// Result of a draw performed inside a transaction: emails to queue once it commits.
-pub struct DrawOutcome {
-    pub game: Game,
-    pub invites: Vec<(Participant, Secret)>,
-    pub organizer_login: Secret,
-}
-
 /// Runs the draw for `game` inside `tx`: assigns receivers, rotates reveal links, bumps the
-/// round and issues an organizer login link. Does not commit.
+/// round, retires invitations from earlier rounds that were still waiting to be sent, and
+/// queues the new invitations plus the organizer's confirmation. All of it lands in the same
+/// transaction, so a crash can never leave a draw without its emails or emails carrying links
+/// that no longer work. Does not commit; the caller commits and then calls
+/// [`AppState::wake_mailer`].
 pub async fn draw_in_tx(
+    state: &AppState,
     tx: &mut sqlx::SqliteConnection,
     game: &Game,
-) -> Result<Result<DrawOutcome, DrawError>, AppError> {
+) -> Result<Result<Game, DrawError>, AppError> {
     let participants = repo::participants::list(tx, game.id).await?;
     let exclusions = repo::exclusions::list(tx, game.id).await?;
     let ids: Vec<ParticipantId> = participants.iter().map(|p| p.id).collect();
@@ -974,32 +989,8 @@ pub async fn draw_in_tx(
     };
     let receiver_of: HashMap<ParticipantId, ParticipantId> = pairs.into_iter().collect();
 
-    let mut assignments = Vec::with_capacity(participants.len());
-    let mut invites = Vec::with_capacity(participants.len());
-    for p in participants {
-        let secret = Secret::generate();
-        let receiver = receiver_of[&p.id];
-        assignments.push((p.id, receiver, secret.hash()));
-        invites.push((
-            Participant {
-                receiver_id: Some(receiver),
-                reveal_token_hash: secret.hash(),
-                revealed_at: None,
-                ..p
-            },
-            secret,
-        ));
-    }
-    repo::participants::apply_draw(tx, &assignments).await?;
     let now = db::now();
     let round = repo::games::mark_drawn(tx, game.id, now).await?;
-    let organizer_login = auth::issue_login_token(
-        tx,
-        &game.organizer_email,
-        SessionKind::Organizer,
-        auth::ORGANIZER_LINK_SECS,
-    )
-    .await?;
     let game = Game {
         status: crate::models::GameStatus::Drawn,
         draw_round: round,
@@ -1007,43 +998,37 @@ pub async fn draw_in_tx(
         updated_at: now,
         ..game.clone()
     };
-    Ok(Ok(DrawOutcome {
-        game,
-        invites,
-        organizer_login,
-    }))
-}
+    let redraw = round > 1;
+    repo::outbox::cancel_queued_before_round(tx, game.id, round).await?;
 
-/// Queues invitations and the organizer confirmation for a committed draw.
-pub async fn queue_draw_emails(state: &AppState, outcome: &DrawOutcome) -> Result<(), AppError> {
-    let redraw = outcome.game.draw_round > 1;
-    for (p, secret) in &outcome.invites {
+    let mut assignments = Vec::with_capacity(participants.len());
+    for p in participants {
+        let secret = Secret::generate();
+        let receiver = receiver_of[&p.id];
+        assignments.push((p.id, receiver, secret.hash()));
+        let p = Participant {
+            receiver_id: Some(receiver),
+            reveal_token_hash: secret.hash(),
+            revealed_at: None,
+            ..p
+        };
         let url = state.url(&format!("/revelar/{}", secret.as_str()));
-        state
-            .enqueue(&compose::invite(
-                &state.site,
-                &outcome.game,
-                p,
-                &url,
-                redraw,
-            )?)
-            .await?;
+        let invite = compose::invite(&state.site, &game, &p, &url, redraw)?;
+        repo::outbox::enqueue(tx, &invite, now).await?;
     }
-    let login_url = auth::login_url(
-        state,
-        &outcome.organizer_login,
-        Some(&format!("/jogo/{}", outcome.game.id)),
-    );
-    state
-        .enqueue(&compose::drawn(
-            &state.site,
-            &outcome.game,
-            outcome.invites.len(),
-            &login_url,
-            redraw,
-        )?)
-        .await?;
-    Ok(())
+    repo::participants::apply_draw(tx, &assignments).await?;
+
+    let organizer_login = auth::issue_login_token(
+        tx,
+        &game.organizer_email,
+        SessionKind::Organizer,
+        auth::ORGANIZER_LINK_SECS,
+    )
+    .await?;
+    let login_url = auth::login_url(state, &organizer_login, Some(&format!("/jogo/{}", game.id)));
+    let confirmation = compose::drawn(&state.site, &game, assignments.len(), &login_url, redraw)?;
+    repo::outbox::enqueue(tx, &confirmation, now).await?;
+    Ok(Ok(game))
 }
 
 fn draw_error_message(e: DrawError) -> String {
@@ -1053,8 +1038,9 @@ fn draw_error_message(e: DrawError) -> String {
     }
 }
 
-/// Completes a mutation that requires a redraw: draws inside `tx`, commits, queues emails.
-/// On an impossible draw the transaction is dropped (rolled back) and the organizer sees why.
+/// Completes a mutation that requires a redraw: draws (and queues the emails) inside `tx`,
+/// commits, wakes the mailer. On an impossible draw the transaction is dropped (rolled back)
+/// and the organizer sees why.
 async fn finish_redraw(
     state: &AppState,
     jar: CookieJar,
@@ -1062,10 +1048,10 @@ async fn finish_redraw(
     game: &Game,
     success_msg: String,
 ) -> Result<Response, AppError> {
-    match draw_in_tx(&mut tx, game).await? {
-        Ok(outcome) => {
+    match draw_in_tx(state, &mut tx, game).await? {
+        Ok(_) => {
             tx.commit().await.map_err(anyhow::Error::from)?;
-            queue_draw_emails(state, &outcome).await?;
+            state.wake_mailer();
             Ok(back(jar, game.id, FlashKind::Ok, success_msg))
         }
         Err(e) => Ok(back(
@@ -1088,11 +1074,11 @@ pub async fn draw(
 ) -> Result<Response, AppError> {
     let game = load_game(&state, &session, id).await?;
     let mut tx = state.db.begin().await.map_err(anyhow::Error::from)?;
-    match draw_in_tx(&mut tx, &game).await? {
-        Ok(outcome) => {
+    match draw_in_tx(&state, &mut tx, &game).await? {
+        Ok(game) => {
             tx.commit().await.map_err(anyhow::Error::from)?;
-            queue_draw_emails(&state, &outcome).await?;
-            let msg = if outcome.game.draw_round > 1 {
+            state.wake_mailer();
+            let msg = if game.draw_round > 1 {
                 "Sorteio refeito! Todos recebem um novo convite; os links antigos deixaram de valer."
             } else {
                 "Sorteio realizado! Os convites estão sendo enviados."

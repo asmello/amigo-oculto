@@ -102,7 +102,44 @@ pub async fn mark_failed(ex: Exec<'_>, id: OutboxId, error: &str) -> Result<()> 
     Ok(())
 }
 
-/// Delivery status of the newest invitation per participant for the given draw round.
+/// Retires invitations and the organizer's confirmation from rounds before `round` that are
+/// still waiting to be sent. Run inside the redraw transaction: the links they carry stop
+/// working the moment the new assignments commit, so the worker must never deliver them.
+pub async fn cancel_queued_before_round(ex: Exec<'_>, game_id: GameId, round: i64) -> Result<u64> {
+    let r = sqlx::query(
+        "UPDATE outbox SET status = ?, last_error = 'superseded by a redraw' \
+         WHERE game_id = ? AND status = ? AND kind IN (?, ?) \
+         AND (draw_round IS NULL OR draw_round < ?)",
+    )
+    .bind(OutboxStatus::Cancelled)
+    .bind(game_id)
+    .bind(OutboxStatus::Queued)
+    .bind(EmailKind::Invite)
+    .bind(EmailKind::Drawn)
+    .bind(round)
+    .execute(ex)
+    .await?;
+    Ok(r.rows_affected())
+}
+
+/// Retires a participant's invitations that are still waiting to be sent. Run in the same
+/// transaction that rotates their reveal link.
+pub async fn cancel_queued_invites_for(ex: Exec<'_>, participant_id: ParticipantId) -> Result<u64> {
+    let r = sqlx::query(
+        "UPDATE outbox SET status = ?, last_error = 'superseded by a new link' \
+         WHERE participant_id = ? AND kind = ? AND status = ?",
+    )
+    .bind(OutboxStatus::Cancelled)
+    .bind(participant_id)
+    .bind(EmailKind::Invite)
+    .bind(OutboxStatus::Queued)
+    .execute(ex)
+    .await?;
+    Ok(r.rows_affected())
+}
+
+/// Delivery status of the newest live (not cancelled) invitation per participant for the given
+/// draw round.
 pub async fn latest_invites(
     ex: Exec<'_>,
     game_id: GameId,
@@ -110,15 +147,17 @@ pub async fn latest_invites(
 ) -> Result<HashMap<ParticipantId, (OutboxStatus, Option<String>)>> {
     let rows: Vec<(ParticipantId, OutboxStatus, Option<String>)> = sqlx::query_as(
         "SELECT participant_id, status, last_error FROM outbox \
-         WHERE game_id = ? AND kind = ? AND draw_round = ? AND participant_id IS NOT NULL \
-         ORDER BY created_at ASC",
+         WHERE game_id = ? AND kind = ? AND draw_round = ? AND status != ? \
+         AND participant_id IS NOT NULL \
+         ORDER BY created_at ASC, id ASC",
     )
     .bind(game_id)
     .bind(EmailKind::Invite)
     .bind(draw_round)
+    .bind(OutboxStatus::Cancelled)
     .fetch_all(ex)
     .await?;
-    // Ascending order + insert means the newest row wins.
+    // Ascending order + insert means the newest row wins (ids are ULIDs: time-ordered).
     Ok(rows.into_iter().map(|(p, s, e)| (p, (s, e))).collect())
 }
 

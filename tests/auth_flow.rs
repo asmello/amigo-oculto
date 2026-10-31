@@ -1,5 +1,7 @@
 mod common;
 
+use amigo_oculto::ids::VerificationId;
+use amigo_oculto::{db, repo};
 use common::*;
 
 #[tokio::test]
@@ -132,6 +134,52 @@ async fn create_verify_and_welcome_flow() {
     app.get(&game_path)
         .await
         .assert_redirect_starts("/recuperar");
+}
+
+#[tokio::test]
+async fn a_verification_can_be_claimed_only_once() {
+    let mut app = app().await;
+    let res = app
+        .post(
+            "/criar",
+            &[
+                ("name", "Natal da família"),
+                ("event_date", "2027-12-24"),
+                ("organizer_name", "Ana Mello"),
+                ("organizer_email", "ana@exemplo.com"),
+            ],
+        )
+        .await;
+    let verify_path = res.assert_redirect_starts("/verificar/");
+    let code = code_in(&app.take_mail().await[0]);
+    let id: VerificationId = verify_path.rsplit('/').next().unwrap().parse().unwrap();
+
+    // Two submits of the same code racing each other: the claim is a conditional update, so
+    // exactly one of them wins and only the winner goes on to create a game.
+    let mut conn = app.state.db.acquire().await.unwrap();
+    assert!(
+        repo::verifications::consume(&mut conn, id, db::now())
+            .await
+            .unwrap()
+    );
+    assert!(
+        !repo::verifications::consume(&mut conn, id, db::now())
+            .await
+            .unwrap()
+    );
+    drop(conn);
+
+    // The loser learns the game already exists instead of being told to start over, and gets
+    // no session.
+    let res = app.post(&verify_path, &[("code", &code)]).await;
+    assert_eq!(res.status, 404);
+    res.assert_contains("já foi usado");
+    assert!(app.jar.iter().all(|(k, _)| k != "sid"));
+    let (games,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM games")
+        .fetch_one(&app.state.db)
+        .await
+        .unwrap();
+    assert_eq!(games, 0);
 }
 
 #[tokio::test]

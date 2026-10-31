@@ -50,6 +50,18 @@ async fn reveal_all(app: &mut App, links: &HashMap<String, String>) -> HashMap<S
     out
 }
 
+/// (kind, draw_round, status, recipient) of every outbox row of the game.
+async fn outbox_rows(app: &App, game_id: &str) -> Vec<(String, Option<i64>, String, String)> {
+    sqlx::query_as(
+        "SELECT kind, draw_round, status, to_email FROM outbox WHERE game_id = ? \
+         ORDER BY created_at, id",
+    )
+    .bind(game_id)
+    .fetch_all(&app.state.db)
+    .await
+    .unwrap()
+}
+
 fn assert_valid_derangement(pairs: &HashMap<String, String>) {
     let names: HashMap<&str, &str> = PEOPLE.iter().map(|(n, e)| (*e, *n)).collect();
     let receivers: HashSet<&str> = pairs.values().map(String::as_str).collect();
@@ -395,6 +407,123 @@ async fn removing_someone_after_the_draw_redraws_or_reopens() {
             ));
     }
     assert!(app.take_mail().await.is_empty());
+}
+
+#[tokio::test]
+async fn draw_queues_its_emails_in_the_same_transaction() {
+    let mut app = app().await;
+    let game_id = game_with_people(&mut app, 3).await;
+    let base = format!("/jogo/{game_id}");
+    app.post(&format!("{base}/sortear"), &[])
+        .await
+        .assert_redirect(&base);
+
+    // Before the worker has run, the outbox already holds one invitation per participant plus
+    // the organizer's confirmation for round 1: a draw is never durable without its emails.
+    let rows = outbox_rows(&app, &game_id).await;
+    let invites: Vec<_> = rows.iter().filter(|r| r.0 == "invite").collect();
+    assert_eq!(invites.len(), 3);
+    assert!(invites.iter().all(|r| r.1 == Some(1) && r.2 == "queued"));
+    assert_eq!(
+        rows.iter()
+            .filter(|r| r.0 == "drawn" && r.1 == Some(1) && r.2 == "queued")
+            .count(),
+        1
+    );
+    app.get(&base).await.assert_contains("Enviando convite");
+}
+
+#[tokio::test]
+async fn redraw_retires_invitations_still_waiting_to_be_sent() {
+    let mut app = app().await;
+    let game_id = game_with_people(&mut app, 4).await;
+    let base = format!("/jogo/{game_id}");
+    app.post(&format!("{base}/sortear"), &[])
+        .await
+        .assert_redirect(&base);
+
+    // The mail server is down (nothing flushed yet) when the organizer removes someone, which
+    // redraws. The round-1 emails must never go out: their links died with the redraw.
+    let page = app.get(&base).await;
+    let daniel = participant_id(&page.body, "Daniel Mello");
+    app.post(&format!("{base}/participantes/{daniel}/remover"), &[])
+        .await
+        .assert_redirect(&base);
+
+    let mail = app.take_mail().await;
+    let invites: Vec<_> = mail
+        .iter()
+        .filter(|m| m.text_body.contains("/revelar/"))
+        .collect();
+    assert_eq!(
+        invites.len(),
+        3,
+        "exactly one invitation per remaining participant"
+    );
+    for m in &invites {
+        app.get(&path_of(&link_in(m, "/revelar/")))
+            .await
+            .assert_ok();
+    }
+    assert_eq!(
+        mail.iter()
+            .filter(|m| m.subject.starts_with("Sorteio realizado"))
+            .count(),
+        1,
+        "one organizer confirmation, for the redraw"
+    );
+
+    let rows = outbox_rows(&app, &game_id).await;
+    for (kind, round, status, to) in &rows {
+        if kind == "invite" || kind == "drawn" {
+            let expected = if *round == Some(1) {
+                "cancelled"
+            } else {
+                "sent"
+            };
+            assert_eq!(status, expected, "{kind} to {to} in round {round:?}");
+        }
+    }
+    // Round 1: three invitations (Daniel's row went with him) + the confirmation.
+    assert_eq!(rows.iter().filter(|r| r.2 == "cancelled").count(), 4);
+}
+
+#[tokio::test]
+async fn resend_retires_an_invitation_still_waiting_to_be_sent() {
+    let mut app = app().await;
+    let game_id = game_with_people(&mut app, 3).await;
+    let base = format!("/jogo/{game_id}");
+    app.post(&format!("{base}/sortear"), &[])
+        .await
+        .assert_redirect(&base);
+    let page = app.get(&base).await;
+    let bruno = participant_id(&page.body, "Bruno Mello");
+    app.post(&format!("{base}/participantes/{bruno}/reenviar"), &[])
+        .await
+        .assert_redirect(&base);
+
+    let mail = app.take_mail().await;
+    let to_bruno: Vec<_> = mail
+        .iter()
+        .filter(|m| m.to == "bruno@exemplo.com")
+        .collect();
+    assert_eq!(
+        to_bruno.len(),
+        1,
+        "the superseded invitation is never delivered"
+    );
+    app.get(&path_of(&link_in(to_bruno[0], "/revelar/")))
+        .await
+        .assert_ok();
+
+    let rows = outbox_rows(&app, &game_id).await;
+    let mut statuses: Vec<&str> = rows
+        .iter()
+        .filter(|r| r.0 == "invite" && r.3 == "bruno@exemplo.com")
+        .map(|r| r.2.as_str())
+        .collect();
+    statuses.sort_unstable();
+    assert_eq!(statuses, ["cancelled", "sent"]);
 }
 
 #[tokio::test]

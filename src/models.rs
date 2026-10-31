@@ -119,6 +119,8 @@ pub enum OutboxStatus {
     Queued,
     Sent,
     Failed,
+    /// Superseded before it was sent (the link it carried was rotated); never delivered.
+    Cancelled,
 }
 
 /// Kinds of email we send. Stored as text so the organizer page can pick out invitations.

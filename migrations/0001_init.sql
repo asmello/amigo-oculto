@@ -90,7 +90,7 @@ CREATE TABLE outbox (
     subject         TEXT NOT NULL,
     text_body       TEXT NOT NULL,
     html_body       TEXT NOT NULL,
-    status          TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'sent', 'failed')),
+    status          TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'sent', 'failed', 'cancelled')),
     attempts        INTEGER NOT NULL DEFAULT 0,
     next_attempt_at INTEGER NOT NULL,
     last_error      TEXT,
