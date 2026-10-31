@@ -64,7 +64,8 @@ ENV PORT=8080 \
     DATABASE_URL=sqlite:///app/data/amigo_oculto_v2.db \
     RUST_LOG=info
 EXPOSE 8080
-VOLUME ["/app/data"]
+# No VOLUME instruction: Railway rejects Dockerfiles that declare one; the volume is attached to
+# the service (mount path /app/data) and run.sh takes ownership of it at start.
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -fsS "http://127.0.0.1:${PORT}/healthz" || exit 1
