@@ -106,7 +106,7 @@ impl FromRequestParts<AppState> for Admin {
             .map_err(IntoResponse::into_response)?;
         match session {
             Some(s) if s.is_admin => Ok(Self(s)),
-            _ => Err(Redirect::to("/admin").into_response()),
+            _ => Err(Redirect::to(super::admin::PANEL_PATH).into_response()),
         }
     }
 }

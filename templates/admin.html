@@ -9,7 +9,7 @@
   {% if sent %}
   <p class="muted">Se este email tiver acesso, um link chega em instantes.</p>
   {% else %}
-  <form method="post" action="/admin/entrar" class="stack" novalidate>
+  <form method="post" action="/painel/entrar" class="stack" novalidate>
     <div class="field"><label for="email">Email</label><input class="input" id="email" name="email" type="email" required autocomplete="email" autofocus></div>
     <button type="submit" class="btn btn-primary btn-block">Enviar link</button>
   </form>
@@ -21,7 +21,7 @@
   <div class="meta"><span><svg class="i sm"><use href="#i-gift"/></svg> {{ total }} {% if total == 1 %}sorteio{% else %}sorteios{% endif %}</span><span><svg class="i sm"><use href="#i-mail"/></svg> {{ queued_emails }} {% if queued_emails == 1 %}email{% else %}emails{% endif %} na fila</span></div>
 </section>
 <div class="card">
-  <form method="get" action="/admin" class="row-3" style="margin-bottom:16px">
+  <form method="get" action="/painel" class="row-3" style="margin-bottom:16px">
     <div class="field" style="grid-column:1/3"><label for="q">Buscar</label><input class="input" id="q" name="q" value="{{ q }}" placeholder="nome do evento, organizador ou email"></div>
     <button type="submit" class="btn btn-secondary btn-block-sm">Buscar</button>
   </form>
@@ -41,7 +41,7 @@
         {% if g.is_drawn() %}<span class="chip chip-ok">{{ g.revealed_count }}/{{ g.participant_count }} revelaram</span>{% else %}<span class="chip chip-wait">não sorteado</span>{% endif %}
       </div>
       <div class="li-actions">
-        <form method="post" action="/admin/jogos/{{ g.id }}/excluir" class="inline" data-confirm="Excluir “{{ g.name }}” e todos os dados? Isso não pode ser desfeito.">
+        <form method="post" action="/painel/jogos/{{ g.id }}/excluir" class="inline" data-confirm="Excluir “{{ g.name }}” e todos os dados? Isso não pode ser desfeito.">
           <button type="submit" class="iconbtn danger" title="Excluir" aria-label="Excluir {{ g.name }}"><svg class="i"><use href="#i-trash"/></svg></button>
         </form>
       </div>
@@ -50,9 +50,9 @@
   </ul>
   {% if pages > 1 %}
   <div class="actions" style="margin-top:14px">
-    {% if page > 1 %}<a class="btn btn-secondary btn-sm" href="/admin?q={{ q_enc }}&page={{ page - 1 }}">Anterior</a>{% endif %}
+    {% if page > 1 %}<a class="btn btn-secondary btn-sm" href="/painel?q={{ q_enc }}&page={{ page - 1 }}">Anterior</a>{% endif %}
     <span class="spacer"></span><span class="tiny muted">página {{ page }} de {{ pages }}</span><span class="spacer"></span>
-    {% if page < pages %}<a class="btn btn-secondary btn-sm" href="/admin?q={{ q_enc }}&page={{ page + 1 }}">Próxima</a>{% endif %}
+    {% if page < pages %}<a class="btn btn-secondary btn-sm" href="/painel?q={{ q_enc }}&page={{ page + 1 }}">Próxima</a>{% endif %}
   </div>
   {% endif %}
   {% endif %}
