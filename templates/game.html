@@ -182,7 +182,8 @@ Igor Prado <igor@exemplo.com>" required></textarea>
 </details>
 
 <dialog id="edit-dialog" class="dialog">
-  <form method="post" action="" class="stack" id="edit-form">
+  <form method="post" action="/jogo/{{ game.id }}/participantes/editar" class="stack" id="edit-form">
+    <input type="hidden" name="pid" value="">
     <h2>Editar participante</h2>
     <div class="field"><label for="e-name">Nome</label><input class="input" id="e-name" name="name" maxlength="80" required></div>
     <div class="field"><label for="e-email">Email</label><input class="input" id="e-email" name="email" type="email" required>{% if game.is_drawn() %}<div class="hint">Se o email mudar, enviamos o convite para o novo endereço e o link antigo deixa de valer. Não é possível trocar o email de quem já revelou.</div>{% endif %}</div>

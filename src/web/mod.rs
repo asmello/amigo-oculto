@@ -101,7 +101,7 @@ pub fn router(state: AppState) -> Router {
             post(game::add_participants_bulk),
         )
         .route(
-            "/jogo/{id}/participantes/{pid}",
+            "/jogo/{id}/participantes/editar",
             post(game::edit_participant),
         )
         .route(

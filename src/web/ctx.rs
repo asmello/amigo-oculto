@@ -78,6 +78,7 @@ pub fn set_flash(jar: CookieJar, kind: FlashKind, text: impl Into<String>) -> Co
         Cookie::build((FLASH_COOKIE, value))
             .path("/")
             .http_only(true)
+            .secure(true)
             .same_site(SameSite::Lax)
             .max_age(time_duration_minutes(5))
             .build(),
@@ -90,7 +91,14 @@ pub fn take_flash(jar: CookieJar) -> (CookieJar, Option<Flash>) {
         return (jar, None);
     };
     let value = cookie.value().to_owned();
-    let jar = jar.remove(Cookie::build(FLASH_COOKIE).path("/").build());
+    let jar = jar.remove(
+        Cookie::build(FLASH_COOKIE)
+            .path("/")
+            .http_only(true)
+            .secure(true)
+            .same_site(SameSite::Lax)
+            .build(),
+    );
     let (tag, payload) = value.split_at(usize::from(!value.is_empty()));
     let kind = match tag {
         "o" => FlashKind::Ok,

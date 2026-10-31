@@ -365,13 +365,8 @@ pub async fn verify(
     let mut tx = state.db.begin().await.map_err(anyhow::Error::from)?;
     repo::games::insert(&mut tx, &game).await?;
     repo::verifications::consume(&mut tx, id, now).await?;
-    let cookie = auth::start_session(
-        &mut tx,
-        &state.cfg,
-        &game.organizer_email,
-        SessionKind::Organizer,
-    )
-    .await?;
+    let cookie =
+        auth::start_session(&mut tx, &game.organizer_email, SessionKind::Organizer).await?;
     let login = auth::issue_login_token(
         &mut tx,
         &game.organizer_email,
@@ -613,7 +608,7 @@ pub async fn login(
         // Admin links are single-use.
         repo::auth::delete_login_tokens_for(&mut conn, &t.email, SessionKind::Admin).await?;
     }
-    let cookie = auth::start_session(&mut conn, &state.cfg, &t.email, t.kind).await?;
+    let cookie = auth::start_session(&mut conn, &t.email, t.kind).await?;
     let default = match t.kind {
         SessionKind::Organizer => "/meus",
         SessionKind::Admin => "/admin",

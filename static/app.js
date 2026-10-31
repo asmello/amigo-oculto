@@ -1,4 +1,5 @@
-// Progressive enhancement only: every flow works without this file.
+// Progressive enhancement: every flow works without this file, except the participant edit
+// dialog, which needs <dialog> support.
 (function () {
   "use strict";
 
@@ -39,8 +40,7 @@
   if (dialog && editForm && typeof dialog.showModal === "function") {
     document.querySelectorAll("[data-edit-participant]").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        var base = window.location.pathname.replace(/\/$/, "");
-        editForm.action = base + "/participantes/" + btn.getAttribute("data-id");
+        editForm.elements.pid.value = btn.getAttribute("data-id") || "";
         editForm.elements.name.value = btn.getAttribute("data-name") || "";
         editForm.elements.email.value = btn.getAttribute("data-email") || "";
         dialog.showModal();

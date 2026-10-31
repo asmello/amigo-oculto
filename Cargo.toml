@@ -3,7 +3,7 @@ name = "amigo-oculto"
 version = "2.0.0"
 edition = "2024"
 rust-version = "1.90"
-description = "Sorteio de amigo oculto para a família: cria o evento, sorteia e avisa cada um por email."
+description = "Secret Santa for the family: create the event, draw the names and notify everyone by email (pt-BR interface)."
 license = "MIT"
 publish = false
 

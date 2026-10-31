@@ -111,10 +111,13 @@ impl FromRequestParts<AppState> for Admin {
     }
 }
 
+// Every cookie here is `Secure`, unconditionally: production is HTTPS-only, and Chromium and
+// Firefox still accept Secure cookies on http://localhost for development (Safari does not —
+// use another browser or local TLS). A literal `true` is also what static analysis checks.
+
 /// Creates a session row and returns the cookie to set.
 pub async fn start_session(
     conn: repo::Exec<'_>,
-    cfg: &Config,
     email: &EmailAddress,
     kind: SessionKind,
 ) -> Result<Cookie<'static>> {
@@ -138,14 +141,19 @@ pub async fn start_session(
     Ok(Cookie::build((SESSION_COOKIE, secret.as_str().to_owned()))
         .path("/")
         .http_only(true)
-        .secure(cfg.is_https())
+        .secure(true)
         .same_site(SameSite::Lax)
         .max_age(time::Duration::seconds(ttl))
         .build())
 }
 
 pub fn clear_session_cookie() -> Cookie<'static> {
-    Cookie::build(SESSION_COOKIE).path("/").build()
+    Cookie::build(SESSION_COOKIE)
+        .path("/")
+        .http_only(true)
+        .secure(true)
+        .same_site(SameSite::Lax)
+        .build()
 }
 
 /// Issues a login link token and returns the secret to embed in the URL.

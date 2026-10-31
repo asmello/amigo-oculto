@@ -116,8 +116,9 @@ async fn participants_crud_before_draw() {
     // Edit and remove.
     let pid = participant_id(&page.body, "Carla Souza");
     app.post(
-        &format!("{base}/participantes/{pid}"),
+        &format!("{base}/participantes/editar"),
         &[
+            ("pid", &pid),
             ("name", "Carla S. Souza"),
             ("email", "carla.souza@exemplo.com"),
         ],
@@ -459,8 +460,12 @@ async fn editing_email_after_draw_moves_the_link_and_is_blocked_after_reveal() {
     let carla = participant_id(&page.body, "Carla Souza");
 
     app.post(
-        &format!("{base}/participantes/{bruno}"),
-        &[("name", "Bruno Mello"), ("email", "bruno.novo@exemplo.com")],
+        &format!("{base}/participantes/editar"),
+        &[
+            ("pid", &bruno),
+            ("name", "Bruno Mello"),
+            ("email", "bruno.novo@exemplo.com"),
+        ],
     )
     .await
     .assert_redirect(&base);
@@ -478,8 +483,12 @@ async fn editing_email_after_draw_moves_the_link_and_is_blocked_after_reveal() {
     // Carla reveals, then her email can no longer be changed (name still can).
     app.post(&links["carla@exemplo.com"], &[]).await.assert_ok();
     app.post(
-        &format!("{base}/participantes/{carla}"),
-        &[("name", "Carla Souza"), ("email", "outra@exemplo.com")],
+        &format!("{base}/participantes/editar"),
+        &[
+            ("pid", &carla),
+            ("name", "Carla Souza"),
+            ("email", "outra@exemplo.com"),
+        ],
     )
     .await
     .assert_redirect(&base);
@@ -487,8 +496,12 @@ async fn editing_email_after_draw_moves_the_link_and_is_blocked_after_reveal() {
         .await
         .assert_contains("já revelou quem tirou");
     app.post(
-        &format!("{base}/participantes/{carla}"),
-        &[("name", "Carla S."), ("email", "carla@exemplo.com")],
+        &format!("{base}/participantes/editar"),
+        &[
+            ("pid", &carla),
+            ("name", "Carla S."),
+            ("email", "carla@exemplo.com"),
+        ],
     )
     .await
     .assert_redirect(&base);

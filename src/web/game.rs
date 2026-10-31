@@ -586,14 +586,24 @@ fn plural(n: usize) -> &'static str {
     if n == 1 { "" } else { "s" }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct EditParticipantForm {
+    pub pid: ParticipantId,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub email: String,
+}
+
 pub async fn edit_participant(
     State(state): State<AppState>,
     Organizer(session): Organizer,
-    Path((id, pid)): Path<(GameId, ParticipantId)>,
+    Path(id): Path<GameId>,
     jar: CookieJar,
-    Form(form): Form<ParticipantForm>,
+    Form(form): Form<EditParticipantForm>,
 ) -> Result<Response, AppError> {
     let game = load_game(&state, &session, id).await?;
+    let pid = form.pid;
     let (name, email) = match validate_person(&form.name, &form.email) {
         Ok(v) => v,
         Err(msg) => return Ok(back(jar, id, FlashKind::Error, msg)),
