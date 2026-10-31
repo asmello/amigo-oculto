@@ -625,7 +625,7 @@ pub async fn login(
     let cookie = auth::start_session(&mut conn, &t.email, t.kind).await?;
     let default = match t.kind {
         SessionKind::Organizer => "/meus",
-        SessionKind::Admin => "/admin",
+        SessionKind::Admin => super::admin::PANEL_PATH,
     };
     let next = auth::safe_next(q.next.as_deref(), default);
     Ok((jar.add(cookie), Redirect::to(&next)).into_response())

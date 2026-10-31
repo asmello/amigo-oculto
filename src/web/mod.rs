@@ -131,9 +131,10 @@ pub fn router(state: AppState) -> Router {
         .route("/revelar/{token}", get(reveal::show).post(reveal::reveal))
         .route("/revelar/{token}/dicas", post(reveal::save_wishlist))
         .route("/revelar/{token}/evento.ics", get(reveal::ics))
-        .route("/admin", get(admin::index))
-        .route("/admin/entrar", post(admin::request_link))
-        .route("/admin/jogos/{id}/excluir", post(admin::delete_game))
+        // Keep in sync with admin::PANEL_PATH (not /admin: see the admin module docs).
+        .route("/painel", get(admin::index))
+        .route("/painel/entrar", post(admin::request_link))
+        .route("/painel/jogos/{id}/excluir", post(admin::delete_game))
         .route("/privacidade", get(pages::privacy))
         .route("/termos", get(pages::terms))
         .route("/healthz", get(pages::healthz))

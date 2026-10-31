@@ -13,7 +13,7 @@ Operational notes for https://amigoocultosimples.app. Keep in sync with reality.
 | Off-provider backups | Litestream → Wasabi S3 (`LITESTREAM_BUCKET`, prefix `LITESTREAM_PATH=v2`; v1 lives under `db`), daily snapshot kept 7 days, 10 s sync |
 | Provider backups | Railway volume snapshots, daily schedule on the volume (Backups tab) |
 | Mail | smtp2go (free tier 1 000/month); from `naoresponda@amigoocultosimples.app` |
-| Admin | `/admin`, magic link to the emails in `ADMIN_EMAILS` |
+| Admin | `/painel`, magic link to the emails in `ADMIN_EMAILS` (`/admin` is blocked by the Cloudflare WAF on purpose) |
 
 Secrets live only in Railway variables (service → Variables). After any suspected leak, rotate at
 the provider (smtp2go / Wasabi keys), then `railway variable set --stdin` with the new values.

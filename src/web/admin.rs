@@ -1,5 +1,9 @@
 //! Site administration: magic-link login for the configured admin emails, a list of games
 //! (no tokens, no matches) and deletion.
+//!
+//! The panel lives at [`PANEL_PATH`], not `/admin`: the Cloudflare WAF in front of production
+//! blocks `/admin` at the edge as a scanner probe (custom rule "Block suspicious probes"), and
+//! keeping that block means scanners never reach the app. Routes are registered in `web::mod`.
 
 use askama::Template;
 use askama_web::WebTemplate;
@@ -18,6 +22,9 @@ use super::security::client_ip;
 use crate::db;
 use crate::email_addr::EmailAddress;
 use crate::fmt::filters;
+
+/// Where the admin panel lives. The sub-routes `/entrar` and `/jogos/{id}/excluir` hang off it.
+pub const PANEL_PATH: &str = "/painel";
 use crate::ids::GameId;
 use crate::mail::compose::{self, ADMIN_LINK_MINUTES};
 use crate::models::SessionKind;
@@ -135,7 +142,7 @@ pub async fn request_link(
     )
     .await?;
     drop(conn);
-    let url = auth::login_url(&state, &secret, Some("/admin"));
+    let url = auth::login_url(&state, &secret, Some(PANEL_PATH));
     state
         .enqueue(&compose::admin_login(&state.site, &email, &url)?)
         .await?;
@@ -161,5 +168,5 @@ pub async fn delete_game(
     } else {
         set_flash(jar, FlashKind::Error, "Esse sorteio não existe mais.")
     };
-    Ok((jar, Redirect::to("/admin")).into_response())
+    Ok((jar, Redirect::to(PANEL_PATH)).into_response())
 }

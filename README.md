@@ -83,7 +83,7 @@ Environment variables (all optional except `BASE_URL` in production):
 | `MAIL_TRANSPORT` | `smtp` if `SMTP_HOST` is set, else `log` | `log` prints emails instead of sending them |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` | — | SMTP relay (port 465 = implicit TLS, others STARTTLS) |
 | `LITESTREAM_BUCKET`, `LITESTREAM_PATH`, `LITESTREAM_ENDPOINT`, `LITESTREAM_ACCESS_KEY_ID`, `LITESTREAM_SECRET_ACCESS_KEY` | — | off-provider replication; `LITESTREAM_PATH` is the prefix inside the bucket (production: `v2`) and is mandatory with the bucket |
-| `ADMIN_EMAILS` | — | comma-separated emails allowed to log into `/admin` |
+| `ADMIN_EMAILS` | — | comma-separated emails allowed to log into the admin panel at `/painel` |
 | `TRUST_PROXY` | `true` | trust `X-Forwarded-For` / `CF-Connecting-IP` for rate limiting |
 | `GAME_RETENTION_DAYS` | `90` | days after the event date before a game is deleted |
 | `RUST_LOG` | `info` | request tracing redacts the secret path segments |

@@ -15,7 +15,7 @@ pub struct Config {
     pub base_url: Url,
     pub database_url: String,
     pub mail: MailConfig,
-    /// Emails allowed to log in to `/admin`.
+    /// Emails allowed to log in to the admin panel (`/painel`).
     pub admin_emails: HashSet<EmailAddress>,
     /// Trust `X-Forwarded-For` for the client IP (true behind Railway/Cloudflare).
     pub trust_proxy: bool,
