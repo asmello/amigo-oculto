@@ -95,7 +95,8 @@ Environment variables (all optional except `BASE_URL` in production):
 - `run.sh` restores the database from Wasabi through Litestream when the volume is empty, then runs
   the app under `litestream replicate -exec`, so every write is replicated off-provider within
   seconds.
-- Railway's native daily volume backups are enabled as a second line of defence.
+- Railway's native volume backups need a Pro workspace, so on the Hobby plan Litestream is the only
+  backup; the restore drill in the RUNBOOK is its acceptance test.
 - Health check: `/healthz`. Logs run at `info`; the secret path segments (`/revelar/…`,
   `/entrar/…`) are rewritten to `[token]` before logging.
 - Restore, backups, DNS and incident procedures: see [RUNBOOK.md](RUNBOOK.md).

@@ -13,4 +13,7 @@
 - UI copy is pt-BR; dates as `24 de dezembro de 2026`, money as `R$ 80` (see `src/fmt.rs`).
 - `run.sh` + Dockerfile CMD are the deploy's single source of truth; keep the Railway dashboard
   start-command override empty.
+- Production sits behind Cloudflare WAF rules (RUNBOOK → Cloudflare). A new static file type, or a
+  path containing a dot or a scanner keyword (`php`, `wp-`, …), is blocked at the edge until the
+  rules change. Random secrets in paths belong only under `/revelar/` or `/entrar/`.
 - Ops: RUNBOOK.md. Full architecture: README.md.
