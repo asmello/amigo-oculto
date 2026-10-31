@@ -1,8 +1,8 @@
 # Railway config-as-code (deprecated by Railway, honoured until 2026-12-01; the same values are
 # also set on the service itself, so behaviour does not depend on this file).
-[build]
-builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
+#
+# No [build] section on purpose: Railway always builds with the Dockerfile it finds at the root,
+# while forcing `builder = "DOCKERFILE"` made the build fail before producing a single log line.
 
 [deploy]
 healthcheckPath = "/healthz"
