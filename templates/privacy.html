@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Privacidade — Amigo Oculto Simples{% endblock %}
+{% block content %}
+<article class="card prose" style="margin-top:14px">
+  <h1>Privacidade</h1>
+  <p class="muted">Resumo honesto do que este site guarda e por quê.</p>
+
+  <h2>O que coletamos</h2>
+  <ul>
+    <li><strong>Organizador:</strong> nome, email, nome do evento, data, valor sugerido e a mensagem para o grupo.</li>
+    <li><strong>Participantes:</strong> nome e email informados pelo organizador, e as dicas de presente que a própria pessoa escrever.</li>
+    <li><strong>Resultado do sorteio:</strong> quem tirou quem. Só a pessoa que tirou consegue ver o seu, pela página do link secreto.</li>
+    <li><strong>Técnico:</strong> registros de acesso sem conteúdo dos links (os códigos secretos são omitidos dos registros) e contadores de uso por endereço IP para evitar abuso, apagados em até dois dias.</li>
+  </ul>
+
+  <h2>Para que usamos</h2>
+  <p>Exclusivamente para realizar o sorteio e enviar os emails do próprio evento: código de confirmação, convites, reenvios e recuperação de links. Não há propaganda, não vendemos nem compartilhamos dados, e não usamos rastreadores ou cookies de terceiros. Os únicos cookies são os de sessão do organizador e de mensagens de confirmação do próprio site.</p>
+
+  <h2>Por quanto tempo</h2>
+  <p>Todos os dados do sorteio — participantes, resultado, dicas e emails já enviados — são apagados automaticamente {{ retention_days }} dias após a data da troca. O organizador pode excluir o sorteio a qualquer momento pela própria página, com efeito imediato.</p>
+
+  <h2>Onde ficam</h2>
+  <p>Em um servidor na União Europeia, com cópia de segurança criptografada. Os links secretos e as sessões são guardados apenas em forma de resumo criptográfico: nem mesmo uma cópia do banco de dados permite abrir a página de alguém.</p>
+
+  <h2>Seus direitos</h2>
+  <p>Você pode pedir a exclusão ou uma cópia dos seus dados a qualquer momento escrevendo para <a href="mailto:{{ contact }}">{{ contact }}</a>. Se você é participante e não quer que seu email esteja aqui, avise o organizador do evento: ele pode remover você na hora.</p>
+</article>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "email/_layout.html" %}
+{% block subject %}Seu código de confirmação{% endblock %}
+{% block preheader %}Código {{ code }} para criar “{{ game_name }}”{% endblock %}
+{% block body %}
+<p style="margin:0 0 14px 0;">Olá, {{ organizer_name }}!</p>
+<p style="margin:0 0 14px 0;">Use este código para confirmar seu email e criar o sorteio <strong>{{ game_name }}</strong>:</p>
+<p style="margin:18px 0;font-family:Georgia,'Times New Roman',serif;font-size:38px;font-weight:bold;letter-spacing:.18em;color:#1F4D3A;">{{ code }}</p>
+<p style="margin:0 0 14px 0;font-size:14px;color:#5F6F67;">O código vale por {{ minutes }} minutos. Se você não pediu isso, pode ignorar este email.</p>
+{% endblock %}

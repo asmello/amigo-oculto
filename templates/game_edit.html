@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Editar evento — {{ game.name }}{% endblock %}
+{% block robots %}noindex{% endblock %}
+{% block nav %}<a href="/jogo/{{ game.id }}" class="keep">Voltar ao sorteio</a>{% endblock %}
+{% block content %}
+<div class="card narrow" style="margin-top:14px">
+  <div class="card-head"><h2>Editar evento</h2></div>
+  {% if !errors.is_empty() %}
+  <div class="banner error" role="alert" style="margin-bottom:16px">
+    <svg class="i"><use href="#i-alert"/></svg>
+    <div>{% for e in errors %}<div>{{ e }}</div>{% endfor %}</div>
+  </div>
+  {% endif %}
+  <form method="post" action="/jogo/{{ game.id }}/editar" class="stack" novalidate>
+    <div class="field">
+      <label for="name">Nome do evento</label>
+      <input class="input" id="name" name="name" value="{{ form.name }}" maxlength="80" required>
+    </div>
+    <div class="row-2">
+      <div class="field">
+        <label for="event_date">Data da troca de presentes</label>
+        <input class="input" id="event_date" name="event_date" type="date" value="{{ form.event_date }}" required>
+      </div>
+      <div class="field">
+        <label for="budget">Valor sugerido <span class="opt">(opcional)</span></label>
+        <div class="prefix"><span>R$</span><input class="input" id="budget" name="budget" value="{{ form.budget }}" placeholder="80" inputmode="decimal"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="organizer_name">Seu nome <span class="opt">(aparece nos convites)</span></label>
+      <input class="input" id="organizer_name" name="organizer_name" value="{{ form.organizer_name }}" maxlength="60" required>
+    </div>
+    <div class="field">
+      <label for="message">Mensagem para o grupo <span class="opt">(opcional)</span></label>
+      <textarea class="textarea" id="message" name="message" rows="3" maxlength="{{ max_message_chars }}">{{ form.message }}</textarea>
+      <div class="hint">Aparece no convite e na página de cada participante.</div>
+    </div>
+    <div class="actions"><a href="/jogo/{{ game.id }}" class="btn btn-secondary">Cancelar</a><span class="spacer"></span><button type="submit" class="btn btn-primary">Salvar</button></div>
+  </form>
+  {% if game.is_drawn() %}<p class="tiny muted" style="margin-top:14px">Essas alterações não refazem o sorteio. Os convites já enviados mostram os dados antigos; a página de cada participante mostra os novos.</p>{% endif %}
+</div>
+{% endblock %}

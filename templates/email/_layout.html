@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>{% block subject %}{{ site.name }}{% endblock %}</title>
+</head>
+<body style="margin:0;padding:0;background:#F8F4EC;font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1C2622;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">{% block preheader %}{% endblock %}</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#F8F4EC;">
+<tr><td align="center" style="padding:28px 16px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;">
+    <tr><td style="padding:0 6px 14px 6px;font-family:Georgia,'Times New Roman',serif;font-size:18px;font-weight:bold;color:#1C2622;">
+      <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#C85A3E;vertical-align:-1px;margin-right:8px;"></span>{{ site.name }}
+    </td></tr>
+    <tr><td style="background:#FFFFFF;border:1px solid #E4DDD0;border-radius:14px;padding:30px 28px;font-size:16px;line-height:1.5;">
+      {% block body %}{% endblock %}
+    </td></tr>
+    <tr><td style="padding:16px 6px 0 6px;font-size:12px;line-height:1.5;color:#5F6F67;">
+      {% block footer %}Este email foi enviado automaticamente por <a href="{{ site.url }}" style="color:#5F6F67;">{{ site.name }}</a>. Os dados do sorteio são apagados 90 dias após a troca.{% endblock %}
+    </td></tr>
+  </table>
+</td></tr>
+</table>
+</body>
+</html>

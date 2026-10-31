@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Perdi meu link — Amigo Oculto Simples{% endblock %}
+{% block robots %}noindex{% endblock %}
+{% block content %}
+<div class="card narrow">
+  {% if sent %}
+  <div class="card-head"><h2>Verifique seu email</h2></div>
+  <p class="muted">Se <strong>{{ email }}</strong> organiza ou participa de algum sorteio, os links chegam em instantes. Não chegou? Confira a caixa de spam ou tente de novo daqui a pouco.</p>
+  <p style="margin-top:18px"><a href="/" class="btn btn-secondary">Voltar ao início</a></p>
+  {% else %}
+  <div class="card-head"><h2>Perdi meu link</h2></div>
+  <p class="muted" style="margin-bottom:18px">
+    {% if wants_game %}Para abrir a página do sorteio, confirme o email do organizador: enviamos um link de acesso.{% else %}Informe seu email e enviamos de novo os links dos sorteios que você organiza e dos que participa.{% endif %}
+  </p>
+  {% if let Some(e) = error %}
+  <div class="banner error" role="alert" style="margin-bottom:16px"><svg class="i"><use href="#i-alert"/></svg><div>{{ e }}</div></div>
+  {% endif %}
+  <form method="post" action="/recuperar" class="stack" novalidate>
+    <div class="field">
+      <label for="email">Seu email</label>
+      <input class="input" id="email" name="email" type="email" value="{{ email }}" placeholder="ana@exemplo.com" required autocomplete="email" autofocus>
+    </div>
+    <button type="submit" class="btn btn-primary btn-lg btn-block"><svg class="i"><use href="#i-mail"/></svg> Enviar meus links</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,59 +1,39 @@
 # syntax=docker/dockerfile:1.6
 
-ARG RUST_VERSION=1.92.0
+# Single-service image: Rust app + Litestream in one container.
+
+ARG RUST_VERSION=1.90
 ARG DEBIAN_SUITE=bookworm
-ARG BIN_NAME=amigo-oculto-backend
-ARG NODE_VERSION=20-bookworm-slim
 
 ############################
-# Frontend build
+# Build (dependency layer first for cache reuse)
 ############################
-FROM node:${NODE_VERSION} AS fe_builder
-WORKDIR /app/frontend
+FROM rust:${RUST_VERSION}-slim-${DEBIAN_SUITE} AS builder
 
-RUN corepack enable
-
-# Copy only package files first for caching
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
-
-RUN pnpm install --frozen-lockfile
-
-# Now copy the rest and build
-COPY frontend/ .
-RUN pnpm run build
-
-############################
-# Build
-############################
-FROM rust:${RUST_VERSION}-slim-${DEBIAN_SUITE} AS be_builder
-WORKDIR /app/backend
-
-# Install only what is typically needed to build + run TLS clients.
-# Add more (e.g., libssl-dev, sqlite3, clang) only if your build fails.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  ca-certificates pkg-config libssl-dev \
+    build-essential pkg-config \
   && rm -rf /var/lib/apt/lists/*
 
-# Faster, more reliable registry fetching in containers
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
-# 1) Copy manifests first for dependency caching
-COPY backend/Cargo.toml backend/Cargo.lock ./
+WORKDIR /app
 
-# 2) Dummy main to compile deps only (best cache reuse)
-RUN mkdir -p src && printf "fn main() {}\n" > src/main.rs
+# Parallel rustc processes can exceed ~1 GB RAM each on small builders; tune per host.
+ARG BUILD_JOBS=8
+ENV CARGO_BUILD_JOBS=${BUILD_JOBS}
 
-# Build deps (layer will be cached if Cargo.toml/Cargo.lock unchanged)
-RUN cargo build --release --locked \
- && rm -rf src
+# Dependencies only: manifests, the build script and a dummy binary. `static/` stays empty
+# here so asset edits never invalidate this (slow) layer; build.rs re-runs when it is filled.
+COPY Cargo.toml Cargo.lock build.rs ./
+RUN mkdir -p src static && printf "fn main() {}\n" > src/main.rs
+RUN cargo build --release --locked && rm -rf src
 
-# 3) Copy actual source and build final binary
-COPY backend/src ./src
-
-# Touch source files to ensure they're newer than the dummy-built binary
-# (Docker COPY preserves mtimes, which can confuse cargo's incremental builds)
-RUN touch src/main.rs
-
+# Real sources (templates/, migrations/ and static/ are embedded at compile time).
+COPY static/ ./static/
+COPY templates/ ./templates
+COPY migrations/ ./migrations
+COPY src/ ./src
+RUN touch src/main.rs src/lib.rs build.rs
 RUN cargo build --release --locked
 
 ############################
@@ -61,35 +41,35 @@ RUN cargo build --release --locked
 ############################
 FROM debian:${DEBIAN_SUITE}-slim AS runtime
 
-# Re-declare ARG to make it available in this stage (Docker ARGs have stage scope)
-ARG BIN_NAME
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/*
+
+# Litestream from the official image (0.5.x config format).
+COPY --from=litestream/litestream:0.5 /usr/local/bin/litestream /usr/local/bin/litestream
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+RUN useradd --system --uid 10001 --home /app appuser \
+  && mkdir -p /app/data && chown -R appuser:appuser /app
 
-# Non-root user (Fly is happy with this; good default hardening)
-# RUN useradd -r -u 10001 -g nogroup appuser
-
-COPY --from=be_builder /app/backend/target/release/${BIN_NAME} /app/${BIN_NAME}
-COPY --from=fe_builder /app/frontend/build /app/public
-
-# Copy Litestream binary from official image (0.5.x config format)
-COPY --from=litestream/litestream:0.5 /usr/local/bin/litestream /usr/local/bin/litestream
-
-# Copy Litestream config and startup script
+COPY --from=builder /app/target/release/amigo-oculto /app/amigo-oculto
 COPY litestream.yml /etc/litestream.yml
 COPY run.sh /app/run.sh
 RUN chmod +x /app/run.sh
 
-# Data directory for SQLite database (mount a volume here)
-RUN mkdir -p /app/data #&& chown -R appuser:nogroup /app
+# The container starts as root only to take ownership of the (root-mounted) volume;
+# run.sh immediately re-executes itself as `appuser`.
+ENV PORT=8080 \
+    DATABASE_URL=sqlite:///app/data/amigo_oculto_v2.db \
+    RUST_LOG=info
+EXPOSE 8080
+# No VOLUME instruction: Railway rejects Dockerfiles that declare one; the volume is attached to
+# the service (mount path /app/data) and run.sh takes ownership of it at start.
 
-# USER appuser
-ENV PORT=3000
-EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -fsS "http://127.0.0.1:${PORT}/healthz" || exit 1
 
-CMD ["/app/amigo-oculto-backend"]
-
+# run.sh restores from the latest Litestream replica when the volume is empty, then
+# runs the app under `litestream replicate -exec`, so every write is shipped off-provider.
+CMD ["/app/run.sh"]

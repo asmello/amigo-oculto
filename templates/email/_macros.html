@@ -1,0 +1,17 @@
+{% macro button(url, label) %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:22px 0;"><tr>
+  <td style="border-radius:10px;background:#1F4D3A;">
+    <a href="{{ url }}" style="display:inline-block;padding:14px 24px;font-size:16px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:10px;">{{ label }}</a>
+  </td>
+</tr></table>
+{% endmacro %}
+{% macro accent_button(url, label) %}
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:22px 0;"><tr>
+  <td style="border-radius:10px;background:#C85A3E;">
+    <a href="{{ url }}" style="display:inline-block;padding:14px 24px;font-size:16px;font-weight:bold;color:#FFFFFF;text-decoration:none;border-radius:10px;">{{ label }}</a>
+  </td>
+</tr></table>
+{% endmacro %}
+{% macro fallback(url) %}
+<p style="margin:0 0 14px 0;font-size:13px;color:#5F6F67;">Se o botão não funcionar, copie este endereço no navegador:<br><a href="{{ url }}" style="color:#1F4D3A;word-break:break-all;">{{ url }}</a></p>
+{% endmacro %}

@@ -1,0 +1,9 @@
+Olá, {{ organizer_name }}!
+
+Use este código para confirmar seu email e criar o sorteio "{{ game_name }}":
+
+    {{ code }}
+
+O código vale por {{ minutes }} minutos. Se você não pediu isso, pode ignorar este email.
+
+— {{ site.name }} · {{ site.url }}

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Amigo Oculto Simples{% endblock %}</title>
+<meta name="description" content="Sorteio de amigo oculto para a família: você adiciona os participantes, a gente sorteia e avisa cada um por email com um link secreto.">
+<meta name="robots" content="{% block robots %}index, follow{% endblock %}">
+<meta name="theme-color" content="#F8F4EC">
+<link rel="icon" href="/static/favicon.svg?v={{ ctx.asset_version }}" type="image/svg+xml">
+<link rel="preload" href="/static/fonts/fraunces.woff2?v={{ ctx.asset_version }}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/static/app.css?v={{ ctx.asset_version }}">
+</head>
+<body>
+{% include "icons.html" %}
+<div class="wrap">
+  <header class="topbar">
+    <a class="brand" href="/">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="13" width="24" height="16" rx="2.5" fill="#C85A3E"/><rect x="2.5" y="8.5" width="27" height="7" rx="2" fill="#E07B5E"/><rect x="14" y="8.5" width="4" height="20.5" fill="#D9A441"/><path d="M16 8.5c-3-4-7-5-7.5-2.5S12 9 16 8.5Zm0 0c3-4 7-5 7.5-2.5S20 9 16 8.5Z" fill="#D9A441"/></svg>
+      <span>Amigo Oculto Simples</span>
+    </a>
+    <nav aria-label="Principal">
+      {% block nav %}
+      <a href="/#como-funciona">Como funciona</a>
+      {% if ctx.is_logged_in() %}
+      <a href="/meus" class="keep">Meus sorteios</a>
+      {% else %}
+      <a href="/recuperar" class="keep">Perdi meu link</a>
+      {% endif %}
+      {% endblock %}
+    </nav>
+  </header>
+
+  {% if let Some(flash) = ctx.flash %}
+  <div class="banner flash {{ flash.kind.class() }}" role="status">
+    {% if flash.kind.class() == "error" %}<svg class="i"><use href="#i-alert"/></svg>{% else if flash.kind.class() == "info" %}<svg class="i"><use href="#i-info"/></svg>{% else %}<svg class="i"><use href="#i-check"/></svg>{% endif %}
+    <div>{{ flash.text }}</div>
+  </div>
+  {% endif %}
+
+  <main id="main">
+  {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <div>© {{ ctx.year }} Amigo Oculto Simples · Os dados do sorteio são apagados 90 dias após a troca.</div>
+    <div><a href="/privacidade">Privacidade</a><a href="/termos">Termos</a><a href="mailto:contato@amigoocultosimples.app">contato@amigoocultosimples.app</a>{% if ctx.is_logged_in() %}<form method="post" action="/sair" class="inline"><button type="submit" class="linklike">Sair</button></form>{% endif %}</div>
+  </footer>
+</div>
+<script src="/static/app.js?v={{ ctx.asset_version }}" defer></script>
+</body>
+</html>

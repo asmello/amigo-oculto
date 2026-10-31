@@ -1,0 +1,11 @@
+{% extends "email/_layout.html" %}
+{% import "email/_macros.html" as m %}
+{% block subject %}Sorteio realizado{% endblock %}
+{% block preheader %}{{ participant_count }} convites estão a caminho.{% endblock %}
+{% block body %}
+<p style="margin:0 0 14px 0;">Olá, {{ organizer_name }}!</p>
+<p style="margin:0 0 14px 0;">{% if redraw %}O sorteio de <strong>{{ game_name }}</strong> foi refeito.{% else %}O sorteio de <strong>{{ game_name }}</strong> foi realizado.{% endif %} Os {{ participant_count }} participantes estão recebendo um email com o link secreto de cada um{% if redraw %} — os links anteriores deixaram de valer{% endif %}.</p>
+<p style="margin:0 0 14px 0;">Na página do organizador você acompanha quem já abriu, reenvia convites e refaz o sorteio se alguém entrar ou sair.</p>
+{{ m::button(login_url, "Acompanhar o sorteio") }}
+{{ m::fallback(login_url) }}
+{% endblock %}

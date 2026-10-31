@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ game.name }} — seu amigo oculto{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<div class="card reveal" style="margin-top:14px">
+{% if let Some(rec) = receiver %}
+  <span class="ribbon">{{ me.name|first_name }}, você tirou</span>
+  <div class="big-name" id="big-name">{{ rec.name }}</div>
+  <p class="muted small" style="margin-top:14px">{{ game.name }} · {{ game.event_date|date_day_month }}{% if let Some(b) = game.budget_cents %} · até {{ b|money }}{% endif %}</p>
+
+  {% if let Some(w) = rec.wishlist %}
+  <div class="quote full" style="margin-top:22px"><strong class="block">Dicas de {{ rec.name|first_name }}</strong>{{ w }}</div>
+  {% else %}
+  <p class="small muted" style="margin-top:22px">{{ rec.name|first_name }} ainda não deixou dicas de presente.</p>
+  {% endif %}
+
+  {% include "reveal_wish.html" %}
+
+  <p class="tiny muted" style="margin-top:22px"><svg class="i sm"><use href="#i-lock"/></svg> Guarde este link para consultar de novo. Se perder, peça outro em “Perdi meu link”.</p>
+  <div class="links">
+    <a href="/revelar/{{ token }}/evento.ics"><svg class="i sm"><use href="#i-calendar"/></svg> Adicionar ao calendário</a>
+    <button type="button" class="linklike" data-toggle-blur="#big-name"><svg class="i sm"><use href="#i-eye-off"/></svg> <span data-label-hide="Esconder o nome" data-label-show="Mostrar o nome">Esconder o nome</span></button>
+  </div>
+{% else %}
+  <svg class="gift" viewBox="0 0 160 160" aria-hidden="true">
+    <defs><linearGradient id="g1" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#E07B5E"/><stop offset="1" stop-color="#C85A3E"/></linearGradient></defs>
+    <ellipse cx="80" cy="140" rx="54" ry="8" fill="#E9E1D2"/>
+    <rect x="28" y="68" width="104" height="68" rx="8" fill="url(#g1)"/>
+    <rect x="20" y="48" width="120" height="28" rx="6" fill="#E88A6E"/>
+    <rect x="70" y="48" width="20" height="88" fill="#D9A441"/>
+    <rect x="20" y="58" width="120" height="8" fill="#D9A441" opacity=".85"/>
+    <path d="M80 48c-14-20-34-24-36-12s18 14 36 12Zm0 0c14-20 34-24 36-12s-18 14-36 12Z" fill="#E6B553"/>
+    <circle cx="80" cy="47" r="6" fill="#C9922F"/>
+    <path d="M38 24l3 6 6 3-6 3-3 6-3-6-6-3 6-3zM122 18l2 4 4 2-4 2-2 4-2-4-4-2 4-2z" fill="#D9A441" opacity=".9"/>
+  </svg>
+  <p class="invite"><strong>{{ game.organizer_name|first_name }}</strong> convidou você para o</p>
+  <h1>{{ game.name }}</h1>
+  <div class="meta"><span><svg class="i sm"><use href="#i-calendar"/></svg> {{ game.event_date|date_day_month }}</span>{% if let Some(b) = game.budget_cents %}<span><svg class="i sm"><use href="#i-tag"/></svg> até {{ b|money }}</span>{% endif %}</div>
+  {% if let Some(m) = game.message %}
+  <div class="quote">“{{ m }}”<span class="by">— {{ game.organizer_name|first_name }}, organizador</span></div>
+  {% endif %}
+  {% if game.is_drawn() %}
+  <p class="muted small" style="margin:24px 0 14px">Olá, <strong>{{ me.name|first_name }}</strong>. Só você consegue ver esta página.</p>
+  <form method="post" action="/revelar/{{ token }}">
+    <button type="submit" class="btn btn-accent btn-lg btn-block"><svg class="i"><use href="#i-gift"/></svg> {% if me.has_revealed() %}Ver de novo quem eu tirei{% else %}Revelar meu amigo oculto{% endif %}</button>
+  </form>
+  {% else %}
+  <p class="muted small" style="margin:24px 0 14px">Olá, <strong>{{ me.name|first_name }}</strong>. O sorteio ainda não aconteceu — você receberá um email quando acontecer.</p>
+  {% endif %}
+  {% include "reveal_wish.html" %}
+  <div class="links"><a href="/revelar/{{ token }}/evento.ics"><svg class="i sm"><use href="#i-calendar"/></svg> Adicionar ao calendário</a></div>
+{% endif %}
+</div>
+{% endblock %}
