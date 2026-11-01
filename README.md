@@ -90,8 +90,12 @@ Environment variables (all optional except `BASE_URL` in production):
 
 ## Deployment (Railway)
 
-- The repository deploys as-is from `main`: `railway.toml` selects the Dockerfile, whose `CMD`
-  is `run.sh` — the single source of truth. Do not override the start command in the dashboard.
+- The repository deploys as-is from `main`: Railway builds the root `Dockerfile` (it always does
+  when one exists), whose `CMD` is `run.sh` — the single source of truth. Do not override the
+  start command in the dashboard.
+- Health check and restart policy are set in `railway.toml`, which overrides the dashboard while
+  Railway still reads config-as-code (until 2026-12-01), and on the service itself, which applies
+  after that. Keep both in sync.
 - `run.sh` restores the database from Wasabi through Litestream when the volume is empty, then runs
   the app under `litestream replicate -exec`, so every write is replicated off-provider within
   seconds.

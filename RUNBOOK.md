@@ -26,7 +26,10 @@ the provider (smtp2go / Wasabi keys) and keep the old key until the new one is p
 3. Only then delete the old key at the provider.
 
 The Dockerfile `CMD` (`/app/run.sh`) is the single source of truth for the start command; the
-dashboard override must stay empty. The container starts as root only to `chown` the volume, then
+dashboard override must stay empty. Health check and restart policy live in `railway.toml` *and* on
+the service (Settings → Deploy): the file wins while Railway reads it (until 2026-12-01), the
+service settings after that, so change both together. A deployment's details page marks the values
+that came from the file. The container starts as root only to `chown` the volume, then
 re-executes `run.sh` as `appuser` (no `RAILWAY_RUN_UID` needed).
 
 ## Daily reality check
