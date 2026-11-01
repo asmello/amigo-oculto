@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use rand::RngCore;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use ulid::Ulid;
@@ -21,7 +21,7 @@ macro_rules! define_id {
 
         impl $name {
             pub fn new() -> Self {
-                Self(Ulid::new())
+                Self(Ulid::generate())
             }
         }
 
@@ -171,7 +171,7 @@ pub struct SecretHash(String);
 impl SecretHash {
     pub fn of(secret: &str) -> Self {
         let digest = Sha256::digest(secret.as_bytes());
-        Self(format!("{digest:x}"))
+        Self(digest.iter().map(|b| format!("{b:02x}")).collect())
     }
 
     pub fn as_str(&self) -> &str {
