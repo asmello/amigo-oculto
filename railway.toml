@@ -1,5 +1,6 @@
-# Railway config-as-code (deprecated by Railway, honoured until 2026-12-01; the same values are
-# also set on the service itself, so behaviour does not depend on this file).
+# Railway config-as-code. Railway has deprecated it but reads this file until 2026-12-01, and while
+# it does, these values override the service settings in the dashboard. The same values are also set
+# on the service, which takes over once the file is no longer read: change both together.
 #
 # No [build] section on purpose: Railway always builds with the Dockerfile it finds at the root,
 # while forcing `builder = "DOCKERFILE"` made the build fail before producing a single log line.
