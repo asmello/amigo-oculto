@@ -9,6 +9,7 @@
 
 use std::collections::HashSet;
 
+use rand::RngExt;
 use rand::seq::SliceRandom;
 
 use crate::ids::ParticipantId;
